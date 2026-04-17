@@ -7,7 +7,6 @@
     <style>
         body { margin: 0; overflow: hidden; background: #3e362e; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; user-select: none; }
         
-        /* HIDE DEFAULT CURSOR */
         canvas { display: block; cursor: none; }
         
         .overlay { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.9); z-index: 10; }
@@ -72,9 +71,10 @@
         </div>
         
         <div class="stats-panel">
-            <div class="stat-row"><span class="stat-label">Base DMG:</span> <span id="stat-damage">100%</span></div>
+            <div class="stat-row"><span class="stat-label">DMG Mult:</span> <span id="stat-damage">100%</span></div>
+            <div class="stat-row"><span class="stat-label">Fire Rate:</span> <span id="stat-firerate">100%</span></div>
             <div class="stat-row"><span class="stat-label">Speed:</span> <span id="stat-speed">3.5</span></div>
-            <div class="stat-row"><span class="stat-label">Regen:</span> <span id="stat-regen">1 HP/s</span></div>
+            <div class="stat-row"><span class="stat-label">Armor:</span> <span id="stat-armor">0%</span></div>
         </div>
         
         <div id="skills-hud"></div>
@@ -83,7 +83,7 @@
     <div id="main-menu" class="overlay">
         <h1>ZOMBIE SURVIVOR</h1>
         <div class="menu-box">
-            <p style="font-size: 18px; color: #ddd;">The Dead are Walking!</p>
+            <p style="font-size: 18px; color: #ddd;">The Horde is Here!</p>
             <p style="font-size: 14px; color: #aaa;">WASD to move. Mouse to aim. Left-Click to Shoot.</p>
             <button id="btn-campaign">Start Run</button>
         </div>
@@ -143,6 +143,7 @@
         };
 
         let projectiles = [], enemies = [], gems = [], medkits = [], floatingTexts = [], effects = [];
+        let mines = [], turrets = []; // New arrays for spawned items
         let keys = {};
         let mouse = { x: canvas.width/2, y: canvas.height/2, isDown: false };
 
@@ -155,17 +156,46 @@
         }
 
         // --- SKILL & WEAPON DATABASE ---
-        // Cooldowns massively increased across the board. 
         const WEAPON_DB = {
             spudGun: {
-                id: 'spudGun', name: 'Gun', type: 'weapon', baseCd: 1200, baseDmg: 25, baseAmt: 1,
+                id: 'spudGun', name: 'Pistol', type: 'weapon', baseCd: 350, baseDmg: 20, baseAmt: 1, // BUFFED CD
                 desc: "Click to shoot towards mouse.",
                 fire: (w, p) => {
                     if (mouse.isDown) {
                         let baseAngle = Math.atan2(mouse.y - p.y, mouse.x - p.x);
                         for(let i=0; i<w.amount; i++) {
-                            let angle = baseAngle + ((i - (w.amount-1)/2) * 0.15); // Spread
-                            projectiles.push(new Projectile(p.x, p.y, angle, 8, w.damage * p.dmgMult, false, false, 'normal'));
+                            let angle = baseAngle + ((i - (w.amount-1)/2) * 0.15); 
+                            projectiles.push(new Projectile(p.x, p.y, angle, 12, w.damage * p.dmgMult, false, false, 'normal'));
+                        }
+                        return true; 
+                    }
+                    return false;
+                }
+            },
+            smg: {
+                id: 'smg', name: 'SMG', type: 'weapon', baseCd: 120, baseDmg: 10, baseAmt: 1, 
+                desc: "Extremely fast, inaccurate fire.",
+                fire: (w, p) => {
+                    if (mouse.isDown) {
+                        let baseAngle = Math.atan2(mouse.y - p.y, mouse.x - p.x);
+                        for(let i=0; i<w.amount; i++) {
+                            let angle = baseAngle + (Math.random() - 0.5) * 0.4; // High spread
+                            projectiles.push(new Projectile(p.x, p.y, angle, 14, w.damage * p.dmgMult, false, false, 'normal'));
+                        }
+                        return true; 
+                    }
+                    return false;
+                }
+            },
+            shotgun: {
+                id: 'shotgun', name: 'Shotgun', type: 'weapon', baseCd: 1200, baseDmg: 18, baseAmt: 5, 
+                desc: "Fires a spread of piercing shells.",
+                fire: (w, p) => {
+                    if (mouse.isDown) {
+                        let baseAngle = Math.atan2(mouse.y - p.y, mouse.x - p.x);
+                        for(let i=0; i<w.amount; i++) {
+                            let angle = baseAngle + ((i - (w.amount-1)/2) * 0.12); 
+                            projectiles.push(new Projectile(p.x, p.y, angle, 15, w.damage * p.dmgMult, true, false, 'sniper'));
                         }
                         return true; 
                     }
@@ -173,14 +203,14 @@
                 }
             },
             sniper: {
-                id: 'sniper', name: 'Sniper', type: 'weapon', baseCd: 2500, baseDmg: 60, baseAmt: 1,
-                desc: "Click to fire a piercing shot.",
+                id: 'sniper', name: 'Sniper', type: 'weapon', baseCd: 2000, baseDmg: 80, baseAmt: 1,
+                desc: "Click to fire a heavy piercing shot.",
                 fire: (w, p) => {
                     if (mouse.isDown) {
                         let baseAngle = Math.atan2(mouse.y - p.y, mouse.x - p.x);
                         for(let i=0; i<w.amount; i++) {
-                            let angle = baseAngle + ((i - (w.amount-1)/2) * 0.05); // Tight spread
-                            projectiles.push(new Projectile(p.x, p.y, angle, 18, w.damage * p.dmgMult, true, false, 'sniper')); 
+                            let angle = baseAngle + ((i - (w.amount-1)/2) * 0.05); 
+                            projectiles.push(new Projectile(p.x, p.y, angle, 20, w.damage * p.dmgMult, true, false, 'sniper')); 
                         }
                         return true;
                     }
@@ -188,38 +218,62 @@
                 }
             },
             missile: {
-                id: 'missile', name: 'Missile Swarm', type: 'weapon', baseCd: 4000, baseDmg: 45, baseAmt: 1,
+                id: 'missile', name: 'Missile Swarm', type: 'weapon', baseCd: 3500, baseDmg: 50, baseAmt: 1,
                 desc: "Fires homing explosive rockets.",
                 fire: (w, p) => {
                     let targets = getNearestEnemies(p.x, p.y, 1);
                     if (targets.length > 0) {
                         for(let i=0; i<w.amount; i++) {
                             let angle = Math.atan2(targets[0].y - p.y, targets[0].x - p.x);
-                            angle += (Math.random() - 0.5) * 2.0; // Random trajectory curve
-                            projectiles.push(new Projectile(p.x, p.y, angle, 5, w.damage * p.dmgMult, false, false, 'missile'));
+                            angle += (Math.random() - 0.5) * 2.0; 
+                            projectiles.push(new Projectile(p.x, p.y, angle, 6, w.damage * p.dmgMult, false, false, 'missile'));
                         }
                         return true;
                     }
                     return false;
                 }
             },
-            lightWheel: {
-                id: 'lightWheel', name: 'Light Wheel', type: 'weapon', baseCd: 8000, baseDmg: 35, baseAmt: 1,
-                desc: "Spawns expanding blades.",
+            orbitalSaw: {
+                id: 'orbitalSaw', name: 'Orbital Saws', type: 'weapon', baseCd: 5000, baseDmg: 20, baseAmt: 2,
+                desc: "Saws permanently orbit you.",
                 fire: (w, p) => {
-                    let count = 4 + (w.amount * 2); // Scales with amount upgrades
-                    for(let i=0; i<count; i++) {
-                        let angle = (Math.PI * 2 / count) * i;
-                        projectiles.push(new Projectile(p.x, p.y, angle, 4, w.damage * p.dmgMult, true, false, 'spiral'));
+                    // Instead of true fire, it spawns long-lasting orbitals
+                    for(let i=0; i<w.amount; i++) {
+                        let angle = (Math.PI * 2 / w.amount) * i;
+                        projectiles.push(new Projectile(p.x, p.y, angle, 2, w.damage * p.dmgMult, true, false, 'orbital'));
+                    }
+                    return true;
+                }
+            },
+            potatoMine: {
+                id: 'potatoMine', name: 'Landmines', type: 'weapon', baseCd: 2500, baseDmg: 100, baseAmt: 1,
+                desc: "Drops explosive mines on the ground.",
+                fire: (w, p) => {
+                    for(let i=0; i<w.amount; i++) {
+                        let offsetX = (Math.random() - 0.5) * 40;
+                        let offsetY = (Math.random() - 0.5) * 40;
+                        mines.push(new Mine(p.x + offsetX, p.y + offsetY, w.damage * p.dmgMult));
+                    }
+                    return true;
+                }
+            },
+            turret: {
+                id: 'turret', name: 'Auto-Turret', type: 'weapon', baseCd: 8000, baseDmg: 15, baseAmt: 1,
+                desc: "Drops a stationary shooting turret.",
+                fire: (w, p) => {
+                    for(let i=0; i<w.amount; i++) {
+                        let offsetX = (Math.random() - 0.5) * 60;
+                        let offsetY = (Math.random() - 0.5) * 60;
+                        turrets.push(new Turret(p.x + offsetX, p.y + offsetY, w.damage * p.dmgMult));
                     }
                     return true;
                 }
             },
             laserShock: {
-                id: 'laserShock', name: 'Tesla Zap', type: 'weapon', baseCd: 3000, baseDmg: 80, baseAmt: 1,
+                id: 'laserShock', name: 'Tesla Zap', type: 'weapon', baseCd: 2500, baseDmg: 80, baseAmt: 1,
                 desc: "Instantly zaps nearest enemies.",
                 fire: (w, p) => {
-                    let targets = getNearestEnemies(p.x, p.y, w.amount, 500); 
+                    let targets = getNearestEnemies(p.x, p.y, w.amount, 600); 
                     if (targets.length > 0) {
                         targets.forEach(target => {
                             target.takeDamage(w.damage * p.dmgMult);
@@ -231,10 +285,10 @@
                 }
             },
             energyAura: {
-                id: 'energyAura', name: 'Energy Aura', type: 'weapon', baseCd: 2500, baseDmg: 15, baseAmt: 1,
+                id: 'energyAura', name: 'Energy Aura', type: 'weapon', baseCd: 2000, baseDmg: 15, baseAmt: 1,
                 desc: "Damages nearby enemies.",
                 fire: (w, p) => {
-                    let radius = 80 + (w.amount * 20); // Amount increases area
+                    let radius = 80 + (w.amount * 20); 
                     enemies.forEach(e => {
                         if (Math.hypot(p.x - e.x, p.y - e.y) < radius) {
                             e.takeDamage(w.damage * p.dmgMult);
@@ -259,7 +313,7 @@
                 }
             },
             legacyStrike: {
-                id: 'legacyStrike', name: 'Air Strike', type: 'skill', baseCd: 15000, baseDmg: 150, baseAmt: 1,
+                id: 'legacyStrike', name: 'Air Strike', type: 'skill', baseCd: 12000, baseDmg: 150, baseAmt: 1,
                 desc: "Press E to explode cursor area.",
                 fire: (w, p) => {
                     if (keys['e']) {
@@ -280,7 +334,10 @@
             { id: 'hp', name: "First Aid", desc: "+20 Max HP", apply: (p) => { p.maxHp += 20; p.hp += 20; } },
             { id: 'dmg', name: "Adrenaline", desc: "+15% All Damage", apply: (p) => { p.dmgMult += 0.15; } },
             { id: 'spd', name: "Track Shoes", desc: "+0.5 Move Speed", apply: (p) => { p.speed += 0.5; } },
-            { id: 'regen', name: "Bandages", desc: "+1 HP/s Regen", apply: (p) => { p.regenRate += 1; } }
+            { id: 'regen', name: "Bandages", desc: "+1 HP/s Regen", apply: (p) => { p.regenRate += 1; } },
+            { id: 'cd', name: "Coffee", desc: "+10% Fire Rate", apply: (p) => { p.fireRateMult *= 0.9; } },
+            { id: 'armor', name: "Kevlar", desc: "+10% Damage Resist", apply: (p) => { p.armor = Math.min(0.75, p.armor + 0.10); } },
+            { id: 'vamp', name: "Vampirism", desc: "+5% Heal on Kill", apply: (p) => { p.vamp += 0.05; } }
         ];
 
         // --- VISUAL EFFECTS ---
@@ -319,6 +376,62 @@
             }
         }
 
+        // --- NEW ENTITIES ---
+        class Mine {
+            constructor(x, y, damage) {
+                this.x = x; this.y = y; this.radius = 8; this.damage = damage;
+                this.active = false;
+                this.armTimer = 1000; // takes 1 second to arm
+            }
+            update(dt) {
+                if(this.armTimer > 0) this.armTimer -= dt;
+                else this.active = true;
+
+                // Draw Mine
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2);
+                ctx.fillStyle = this.active ? '#ff0000' : '#555'; ctx.fill();
+                ctx.lineWidth = 2; ctx.strokeStyle = '#000'; ctx.stroke();
+                // Blinking light
+                if (this.active && Math.floor(performance.now() / 200) % 2 === 0) {
+                    ctx.beginPath(); ctx.arc(this.x, this.y, 3, 0, Math.PI*2);
+                    ctx.fillStyle = '#ffaaaa'; ctx.fill();
+                }
+            }
+        }
+
+        class Turret {
+            constructor(x, y, damage) {
+                this.x = x; this.y = y; this.radius = 12; this.damage = damage;
+                this.life = 15000; // Lives for 15 seconds
+                this.fireTimer = 0;
+            }
+            update(dt) {
+                this.life -= dt;
+                if(this.fireTimer > 0) this.fireTimer -= dt;
+
+                let target = getNearestEnemies(this.x, this.y, 1, 400)[0];
+                let angle = 0;
+                if(target) {
+                    angle = Math.atan2(target.y - this.y, target.x - this.x);
+                    if(this.fireTimer <= 0) {
+                        projectiles.push(new Projectile(this.x, this.y, angle, 15, this.damage, false, false, 'normal'));
+                        this.fireTimer = 400; // fire rate
+                    }
+                }
+
+                // Draw Base
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2);
+                ctx.fillStyle = '#555'; ctx.fill(); ctx.stroke();
+                // Draw Gun Barrel
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(angle);
+                ctx.fillStyle = '#222';
+                ctx.fillRect(0, -4, 15, 8);
+                ctx.restore();
+            }
+        }
+
         // --- GAME CLASSES ---
         class ActiveWeapon {
             constructor(dbEntry) {
@@ -335,7 +448,7 @@
                 
                 this.cdTimer = 0;
             }
-            get cooldown() { return this.baseCd * this.cdMult; }
+            get cooldown() { return this.baseCd * this.cdMult * player.fireRateMult; }
             get damage() { return this.baseDmg * this.dmgMult; }
             
             update(dt, player) {
@@ -355,7 +468,12 @@
                 this.radius = 12; 
                 this.maxHp = 50; this.hp = 50; 
                 this.speed = 3.5; 
+                
                 this.dmgMult = 1.0;
+                this.fireRateMult = 1.0; // Lower is faster
+                this.armor = 0; // % damage reduction
+                this.vamp = 0; // % chance to heal 1 hp on kill
+
                 this.invulnTime = 0; 
                 this.regenRate = 1; 
                 this.regenTimer = 0;
@@ -467,9 +585,10 @@
             takeDamage(amount) {
                 if (this.shieldActive) return;
                 if (this.invulnTime <= 0) {
-                    this.hp -= amount;
+                    let actualDamage = amount * (1 - this.armor);
+                    this.hp -= actualDamage;
                     this.invulnTime = 500;
-                    floatingTexts.push(new FloatingText(this.x, this.y, `-${Math.floor(amount)}`, '#e63946'));
+                    floatingTexts.push(new FloatingText(this.x, this.y, `-${Math.floor(actualDamage)}`, '#e63946'));
                     updateHUD();
                     if (this.hp <= 0) endGame();
                 }
@@ -486,21 +605,22 @@
                 this.baseSpeed = speed;
                 this.velocity = { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed };
                 this.damage = damage; 
-                this.life = (type === 'spiral') ? 3500 : 2500;
+                this.life = (type === 'orbital') ? 5000 : 2500;
                 this.piercing = piercing;
                 this.isEnemy = isEnemy;
                 this.hitList = []; 
-                this.dist = 20; 
+                this.dist = 60; // Orbital distance
             }
             update(dt) {
                 let ts = dt / 16; 
 
-                if (this.type === 'spiral') {
-                    this.angle += 0.08 * ts; 
-                    this.dist += this.baseSpeed * ts; 
+                if (this.type === 'orbital') {
+                    this.angle += 0.05 * ts; 
                     this.x = player.x + Math.cos(this.angle) * this.dist;
                     this.y = player.y + Math.sin(this.angle) * this.dist;
                     this.life -= dt;
+                    // Orbitals allow re-hitting the same enemy after a brief delay, clear list periodically
+                    if (Math.random() < 0.05) this.hitList = [];
                 } else if (this.type === 'missile') {
                     let targets = getNearestEnemies(this.x, this.y, 1);
                     if (targets.length > 0) {
@@ -537,48 +657,50 @@
                 
                 let rand = Math.random();
                 if (isBoss) this.type = 'boss';
-                else if (rand < 0.2) this.type = 'shooter'; 
-                else if (rand < 0.5) this.type = 'runner'; 
+                else if (rand < 0.15) this.type = 'shooter'; 
+                else if (rand < 0.4) this.type = 'runner'; 
                 else this.type = 'normal'; 
 
-                // ZOMBIE SCALING
-                let waveMult = 1 + (state.wave * 0.25); // Faster HP scaling
+                let waveMult = 1 + (state.wave * 0.30); // Tougher scaling
                 
                 if (this.type === 'boss') {
-                    this.radius = 35; this.color = '#2E7D32'; // Dark Green Huge Zombie
+                    this.radius = 35; this.color = '#1b5e20'; 
                     this.speed = 0.5 + (state.wave * 0.05); 
                     this.maxHp = 500 * waveMult; this.damage = 30 * waveMult;
                 } else if (this.type === 'shooter') {
-                    this.radius = 12; this.color = '#607D8B'; // Gray Zombie
+                    this.radius = 12; this.color = '#78909c'; 
                     this.speed = 0.8 + (state.wave * 0.04); 
                     this.maxHp = 20 * waveMult; this.damage = 10 * waveMult;
                     this.shootTimer = 2000;
                 } else if (this.type === 'runner') {
-                    this.radius = 10; this.color = '#F44336'; // Red Zombie
-                    this.speed = 1.8 + (state.wave * 0.08); // VERY Fast
+                    this.radius = 10; this.color = '#e53935'; 
+                    this.speed = 1.8 + (state.wave * 0.1); 
                     this.maxHp = 10 * waveMult; this.damage = 15 * waveMult;
                 } else { 
-                    this.radius = 12; this.color = '#4CAF50'; // Green Normal Zombie
+                    this.radius = 12; this.color = '#4caf50'; 
                     this.speed = 1.0 + (state.wave * 0.05); 
                     this.maxHp = 25 * waveMult; this.damage = 10 * waveMult;
                 }
                 
                 this.hp = this.maxHp;
+                this.walkTick = Math.random() * 100; // For limb animation
+                this.angle = 0;
             }
             
             update(dt) {
-                const angle = Math.atan2(player.y - this.y, player.x - this.x);
+                this.angle = Math.atan2(player.y - this.y, player.x - this.x);
                 const distToPlayer = Math.hypot(player.x - this.x, player.y - this.y);
                 
                 if (this.type === 'shooter' && distToPlayer < 400) {
                     this.shootTimer -= dt;
                     if (this.shootTimer <= 0) {
-                        projectiles.push(new Projectile(this.x, this.y, angle, 6, this.damage, false, true, 'normal'));
+                        projectiles.push(new Projectile(this.x, this.y, this.angle, 6, this.damage, false, true, 'normal'));
                         this.shootTimer = 2000;
                     }
                 } else {
-                    this.x += Math.cos(angle) * this.speed;
-                    this.y += Math.sin(angle) * this.speed;
+                    this.x += Math.cos(this.angle) * this.speed;
+                    this.y += Math.sin(this.angle) * this.speed;
+                    this.walkTick += dt * this.speed * 0.015; // Animation speed based on move speed
                 }
 
                 enemies.forEach(other => {
@@ -592,31 +714,49 @@
                     }
                 });
                 
-                // DRAW ZOMBIE
+                this.draw();
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+
+                let swing = Math.sin(this.walkTick) * (this.radius * 0.8);
+
+                ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
+                
+                // Legs
+                ctx.beginPath(); ctx.moveTo(0, this.radius/3); ctx.lineTo(-this.radius + swing, this.radius + 2); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, -this.radius/3); ctx.lineTo(-this.radius - swing, -this.radius - 2); ctx.stroke();
+                
+                // Arms (Reaching forward)
+                ctx.beginPath(); ctx.moveTo(0, this.radius/2); ctx.lineTo(this.radius + 5 - swing/2, this.radius - 2); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, -this.radius/2); ctx.lineTo(this.radius + 5 + swing/2, -this.radius + 2); ctx.stroke();
+
+                // Body
                 ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                ctx.fillStyle = this.color; ctx.fill();
-                ctx.lineWidth = 2; ctx.strokeStyle = '#000'; ctx.stroke();
+                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color; ctx.fill(); ctx.stroke();
 
-                // Zombie Eyes (Red or black depending on type)
+                // Eyes
                 ctx.fillStyle = this.type === 'runner' ? '#fff' : '#000';
-                ctx.beginPath(); ctx.arc(this.x - this.radius/3, this.y - this.radius/3, this.radius/5, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(this.x + this.radius/3, this.y - this.radius/3, this.radius/5, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(this.radius/2, -this.radius/3, this.radius/5, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(this.radius/2, this.radius/3, this.radius/5, 0, Math.PI*2); ctx.fill();
 
-                // Shooter Gun visual
+                // Shooter Gun
                 if (this.type === 'shooter') {
-                    ctx.save();
-                    ctx.translate(this.x, this.y);
-                    ctx.rotate(angle);
                     ctx.fillStyle = '#333';
-                    ctx.fillRect(this.radius - 2, -3, 10, 6);
-                    ctx.restore();
+                    ctx.fillRect(this.radius - 2, 2, 10, 5);
                 }
 
+                ctx.restore();
+
+                // Health Bar
                 const hpPercent = this.hp / this.maxHp;
                 const barWidth = this.radius * 2;
-                ctx.fillStyle = '#333'; ctx.fillRect(this.x - barWidth/2, this.y - this.radius - 8, barWidth, 3);
-                ctx.fillStyle = '#e63946'; ctx.fillRect(this.x - barWidth/2, this.y - this.radius - 8, barWidth * hpPercent, 3);
+                ctx.fillStyle = '#333'; ctx.fillRect(this.x - barWidth/2, this.y - this.radius - 12, barWidth, 3);
+                ctx.fillStyle = '#e63946'; ctx.fillRect(this.x - barWidth/2, this.y - this.radius - 12, barWidth * hpPercent, 3);
             }
 
             takeDamage(amount) {
@@ -625,7 +765,6 @@
             }
         }
 
-        // --- EXP GEMS UPDATED (Small White Outlined Circles) ---
         class Gem {
             constructor(x, y, value = 1) { 
                 this.x = x; this.y = y; this.radius = 3; this.color = '#ffffff'; 
@@ -673,12 +812,12 @@
 
         // --- GLOBAL FUNCTIONS ---
         function drawEnvironment() {
-            ctx.fillStyle = '#4a4036'; // Darker dirt ground
+            ctx.fillStyle = '#222'; 
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)'; ctx.lineWidth = 1;
-            for(let i=0; i<canvas.width; i+=100) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke(); }
-            for(let i=0; i<canvas.height; i+=100) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); ctx.stroke(); }
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)'; ctx.lineWidth = 1;
+            for(let i=0; i<canvas.width; i+=50) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke(); }
+            for(let i=0; i<canvas.height; i+=50) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); ctx.stroke(); }
             
             ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 20;
             ctx.strokeRect(0, 0, canvas.width, canvas.height);
@@ -717,13 +856,14 @@
             document.getElementById('wave-display').innerText = `Wave: ${state.wave}/${MAX_WAVES}`;
             document.getElementById('level-display').innerText = `Level: ${state.level}`;
             document.getElementById('hp-text').innerText = `HP: ${Math.floor(player.hp)}/${player.maxHp}`;
-            document.getElementById('exp-text').innerText = `EXP: ${state.exp}/${state.expNeeded}`;
+            document.getElementById('exp-text').innerText = `EXP: ${Math.floor(state.exp)}/${state.expNeeded}`;
             document.getElementById('hp-bar').style.width = `${(player.hp / player.maxHp) * 100}%`;
             document.getElementById('exp-bar').style.width = `${(state.exp / state.expNeeded) * 100}%`;
             
             document.getElementById('stat-damage').innerText = `${Math.floor(player.dmgMult * 100)}%`;
+            document.getElementById('stat-firerate').innerText = `${Math.floor((1 / player.fireRateMult) * 100)}%`;
             document.getElementById('stat-speed').innerText = player.speed.toFixed(1);
-            document.getElementById('stat-regen').innerText = `${player.regenRate} HP/s`;
+            document.getElementById('stat-armor').innerText = `${Math.floor(player.armor * 100)}%`;
         }
 
         function spawnEnemy() {
@@ -742,33 +882,28 @@
             
             let pool = [];
             
-            // 1. Weapon Specific Upgrades (BRANCHING)
             player.weapons.forEach(w => {
-                // Choice 1: Pure Damage
                 pool.push({
                     type: 'UPGRADE', name: w.name, levelStr: `+ Damage`,
                     desc: "+30% Damage",
                     apply: () => { w.level++; w.dmgMult += 0.3; }
                 });
                 
-                // Choice 2: Cooldown Reduction
                 pool.push({
                     type: 'UPGRADE', name: w.name, levelStr: `+ Speed`,
                     desc: "-15% Cooldown Time",
                     apply: () => { w.level++; w.cdMult *= 0.85; }
                 });
 
-                // Choice 3: Extra Projectiles/Area (If applicable)
-                if(w.id !== 'sandShield' && w.id !== 'legacyStrike') {
+                if(w.id !== 'sandShield' && w.id !== 'legacyStrike' && w.id !== 'energyAura') {
                     pool.push({
                         type: 'UPGRADE', name: w.name, levelStr: `+ Extra`,
-                        desc: "Fires +1 Extra or Wider Area",
+                        desc: "Fires +1 Extra Projectile",
                         apply: () => { w.level++; w.amount += 1; }
                     });
                 }
             });
 
-            // 2. New Weapons
             if (player.weapons.length < 6) {
                 Object.values(WEAPON_DB).forEach(dbW => {
                     if (!player.weapons.find(pw => pw.id === dbW.id)) {
@@ -781,7 +916,6 @@
                 });
             }
 
-            // 3. Global Passives
             PASSIVE_DB.forEach(stat => {
                 pool.push({
                     type: 'STAT', name: stat.name, levelStr: 'Passive',
@@ -790,7 +924,6 @@
                 });
             });
 
-            // Pick 4 Random Choices
             const selected = [];
             while(selected.length < 4 && pool.length > 0) {
                 let idx = Math.floor(Math.random() * pool.length);
@@ -847,7 +980,7 @@
                     state.spawnTimer -= dt;
                     if (state.spawnTimer <= 0 && state.enemiesToSpawn > 0) {
                         spawnEnemy();
-                        state.spawnTimer = 900; 
+                        state.spawnTimer = 300; // FAST spawns
                     }
 
                     for (let i = gems.length - 1; i >= 0; i--) {
@@ -858,8 +991,7 @@
                             if (state.exp >= state.expNeeded) {
                                 state.level++; 
                                 state.exp -= state.expNeeded;
-                                // EASIER EXP: 1.15x scaling instead of 1.3x
-                                state.expNeeded = Math.floor(state.expNeeded * 1.15);
+                                state.expNeeded = Math.floor(state.expNeeded * 1.15); // Easier scaling
                                 showLevelUp();
                             }
                             updateHUD();
@@ -876,6 +1008,33 @@
                             updateHUD();
                             medkits.splice(i, 1);
                         }
+                    }
+
+                    for (let i = mines.length - 1; i >= 0; i--) {
+                        let m = mines[i];
+                        m.update(dt);
+                        if (m.active) {
+                            let hit = false;
+                            enemies.forEach(e => {
+                                if (!hit && Math.hypot(m.x - e.x, m.y - e.y) < m.radius + e.radius) {
+                                    hit = true;
+                                }
+                            });
+                            if (hit) {
+                                effects.push(new Explosion(m.x, m.y, 80));
+                                enemies.forEach(e => {
+                                    if (Math.hypot(m.x - e.x, m.y - e.y) < 80 + e.radius) {
+                                        e.takeDamage(m.damage);
+                                    }
+                                });
+                                mines.splice(i, 1);
+                            }
+                        }
+                    }
+
+                    for (let i = turrets.length - 1; i >= 0; i--) {
+                        turrets[i].update(dt);
+                        if (turrets[i].life <= 0) turrets.splice(i, 1);
                     }
 
                     player.update(dt);
@@ -928,7 +1087,11 @@
                         }
 
                         if (enemy.hp <= 0) {
-                            // Bosses drop a chunk of EXP
+                            if (player.vamp > 0 && Math.random() < player.vamp) {
+                                player.hp = Math.min(player.maxHp, player.hp + 1);
+                                updateHUD();
+                            }
+
                             if (enemy.isBoss) {
                                 for(let i=0; i<10; i++) gems.push(new Gem(enemy.x + Math.random()*60-30, enemy.y + Math.random()*60-30, 2));
                                 medkits.push(new Medkit(enemy.x, enemy.y));
@@ -950,7 +1113,7 @@
                         if (effects[i].life <= 0) effects.splice(i, 1);
                     }
 
-                    // DRAW CUSTOM CROSSHAIR
+                    // CROSSHAIR
                     ctx.beginPath();
                     ctx.arc(mouse.x, mouse.y, 8, 0, Math.PI * 2);
                     ctx.strokeStyle = '#00ff00';
@@ -961,7 +1124,6 @@
                     ctx.moveTo(mouse.x, mouse.y - 12); ctx.lineTo(mouse.x, mouse.y + 12);
                     ctx.stroke();
 
-                    // Wave checking
                     if (state.enemiesToSpawn <= 0 && enemies.length === 0) {
                         if (state.wave >= MAX_WAVES) {
                             victory();
@@ -970,7 +1132,7 @@
                         state.wave++;
                         
                         state.bossActive = state.wave % 10 === 0;
-                        state.enemiesToSpawn = 15 + (state.wave * 5); 
+                        state.enemiesToSpawn = 30 + (state.wave * 12); // MASSIVE HORDE
 
                         if (state.bossActive) {
                             enemies.push(new Enemy(canvas.width/2, -50, true)); 
@@ -1008,9 +1170,9 @@
             player.addWeapon('spudGun'); 
 
             state.wave = 1; state.level = 1; state.exp = 0; state.expNeeded = 10;
-            state.enemiesToSpawn = 15; state.bossActive = false;
+            state.enemiesToSpawn = 30; state.bossActive = false;
             state.mode = 'playing';
-            projectiles = []; enemies = []; gems = []; medkits = []; floatingTexts = []; effects = [];
+            projectiles = []; enemies = []; gems = []; medkits = []; floatingTexts = []; effects = []; mines = []; turrets = [];
             
             buildSkillHUD();
             updateHUD();
