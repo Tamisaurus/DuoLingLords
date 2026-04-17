@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Desert Survivor</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #E1C699; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; user-select: none; }
+        canvas { display: block; }
+        
+        /* UI Overlays */
+        .overlay { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.85); z-index: 10; }
+        .hidden { display: none !important; }
+        
+        h1 { font-size: 48px; color: #f4a261; margin-bottom: 10px; text-shadow: 0 0 10px #e76f51; }
+        
+        .menu-box { background: #2a1f1a; padding: 30px; border-radius: 10px; border: 2px solid #e76f51; text-align: center; min-width: 300px; }
+        button { background: #f4a261; color: #000; border: none; padding: 15px 30px; font-size: 20px; font-weight: bold; cursor: pointer; border-radius: 5px; margin: 10px 5px; transition: 0.2s; }
+        button:hover { background: #e76f51; color: white; transform: scale(1.05); }
+
+        /* HUD */
+        #hud { position: absolute; top: 0; left: 0; width: 100%; padding: 20px; box-sizing: border-box; pointer-events: none; display: flex; justify-content: space-between; align-items: flex-start; z-index: 5; }
+        .hud-text { font-size: 24px; font-weight: bold; text-shadow: 2px 2px 0 #000; color: #fff; }
+        
+        #exp-container { width: 40%; height: 20px; background: #333; border: 2px solid #555; border-radius: 10px; overflow: hidden; margin: 0 auto; }
+        #exp-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #f4a261, #e76f51); transition: width 0.2s; }
+        
+        #skills-hud { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 20px; }
+        .skill-icon { width: 60px; height: 60px; background: #2a1f1a; border: 2px solid #f4a261; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; text-align: center; position: relative; overflow: hidden;}
+        .cooldown-overlay { position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(0,0,0,0.7); height: 0%; transition: height 0.1s; }
+        .skill-text { position: relative; z-index: 2; }
+        
+    </style>
+</head>
+<body>
+
+    <div id="hud" class="hidden">
+        <div>
+            <div class="hud-text" id="wave-display">Wave: 1</div>
+            <div class="hud-text" id="hp-display">HP: 30/30</div>
+        </div>
+        <div id="exp-container"><div id="exp-bar"></div></div>
+        
+        <div id="skills-hud">
+            <div class="skill-icon">
+                <div id="cd-space" class="cooldown-overlay"></div>
+                <div class="skill-text">SPACE<br>Sand Shield</div>
+            </div>
+            <div class="skill-icon">
+                <div id="cd-e" class="cooldown-overlay"></div>
+                <div class="skill-text">E<br>Legacy Strike</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="main-menu" class="overlay">
+        <h1>DESERT SURVIVOR</h1>
+        <div class="menu-box">
+            <button id="btn-campaign">Start Campaign</button>
+        </div>
+    </div>
+
+    <div id="end-screen" class="overlay hidden">
+        <h1 id="end-title">GAME OVER</h1>
+        <button id="btn-menu">Return to Menu</button>
+    </div>
+
+    <div id="levelup-screen" class="overlay hidden">
+        <h1 id="levelup-title">LEVEL UP!</h1>
+        <p style="font-size: 24px; margin-bottom: 20px;">Choose your upgrade:</p>
+        <div class="menu-box">
+            <button id="btn-passive">Passive: +10 Max HP & +1 HP Regen</button>
+            <br>
+            <button id="btn-active">Active: +5 Damage & -10% Cooldowns</button>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const WORLD_SIZE = 3000;
+        let animationId;
+        let lastTime = 0;
+        
+        let state = { mode: 'menu', wave: 1, exp: 0, expNeeded: 10, enemiesToSpawn: 0, enemiesAlive: 0, spawnTimer: 0 };
+        const camera = { x: 0, y: 0 };
+
+        // Added medkits array
+        let projectiles = [], enemies = [], particles = [], obstacles = [], gems = [], medkits = [];
+        let keys = {};
+        let mouse = { x: canvas.width/2, y: canvas.height/2, isDown: false, lastShot: 0 };
+
+        // --- CLASSES ---
+
+        class Player {
+            constructor(x, y) {
+                this.x = x; this.y = y; this.radius = 18;
+                
+                // Base Stats (Changed HP to 30)
+                this.maxHp = 30; this.hp = 30; this.speed = 4.5; 
+                this.damage = 15; this.fireRate = 350; this.projSpeed = 10;
+                
+                // Mechanics
+                this.invulnTime = 0;
+                
+                // PASSIVE SKILL: Resilient Explorer (HP Regen)
+                this.regenRate = 1; // 1 HP per second
+                this.regenTimer = 0;
+
+                // ACTIVE SKILL 1: Sand Shield (Space)
+                this.shieldActive = false;
+                this.shieldDuration = 4000; // 4 seconds
+                this.shieldTimer = 0;
+                this.shieldCooldown = 12000; // 12 seconds
+                this.shieldCdTimer = 0;
+
+                // ACTIVE SKILL 2: Legacy Strike (E)
+                this.strikeCooldown = 8000; // 8 seconds
+                this.strikeCdTimer = 0;
+                this.strikeRadius = 0; // For animation
+            }
+            
+            draw() {
+                ctx.save();
+                
+                // Active Skill: Sand Shield Visuals
+                if (this.shieldActive) {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius + 15, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(244, 162, 97, 0.4)';
+                    ctx.fill();
+                    ctx.lineWidth = 3;
+                    ctx.strokeStyle = '#f4a261';
+                    ctx.stroke();
+                }
+
+                // Player Body (Khaki/Green)
+                ctx.globalAlpha = this.invulnTime > 0 && !this.shieldActive ? 0.5 : 1;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#556b2f'; // Olive green
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#f5deb3'; // Khaki
+                ctx.stroke();
+
+                // Player Name Tag
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 14px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText("Bongbong Marcos", this.x, this.y - 30);
+                ctx.restore();
+
+                // Legacy Strike Animation
+                if (this.strikeRadius > 0) {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.strikeRadius, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(231, 111, 81, 0.3)';
+                    ctx.fill();
+                    ctx.strokeStyle = '#e76f51';
+                    ctx.lineWidth = 5;
+                    ctx.stroke();
+                    this.strikeRadius += 15; // expand fast
+                    if (this.strikeRadius > 250) this.strikeRadius = 0; // stop animation
+                }
+            }
+
+            update(dt) {
+                // Cooldowns & Timers
+                if (this.invulnTime > 0) this.invulnTime -= dt;
+                if (this.shieldCdTimer > 0) this.shieldCdTimer -= dt;
+                if (this.strikeCdTimer > 0) this.strikeCdTimer -= dt;
+
+                // Passive Skill: HP Regen
+                this.regenTimer += dt;
+                if (this.regenTimer >= 1000) {
+                    this.hp = Math.min(this.maxHp, this.hp + this.regenRate);
+                    this.regenTimer = 0;
+                    updateHUD();
+                }
+
+                // Active Skill 1: Shield Logic
+                if (this.shieldActive) {
+                    this.shieldTimer -= dt;
+                    if (this.shieldTimer <= 0) this.shieldActive = false;
+                }
+                if (keys[' '] && this.shieldCdTimer <= 0) {
+                    this.shieldActive = true;
+                    this.shieldTimer = this.shieldDuration;
+                    this.shieldCdTimer = this.shieldCooldown;
+                }
+
+                // Active Skill 2: Legacy Strike Logic
+                if (keys['e'] && this.strikeCdTimer <= 0) {
+                    this.strikeCdTimer = this.strikeCooldown;
+                    this.strikeRadius = this.radius; // start animation
+                    
+                    // Damage all enemies in 250 range
+                    enemies.forEach(enemy => {
+                        if (Math.hypot(this.x - enemy.x, this.y - enemy.y) <= 250) {
+                            enemy.hp -= 100; // Massive AoE damage
+                        }
+                    });
+                }
+
+                // Update UI Cooldowns
+                document.getElementById('cd-space').style.height = `${(this.shieldCdTimer / this.shieldCooldown) * 100}%`;
+                document.getElementById('cd-e').style.height = `${(this.strikeCdTimer / this.strikeCooldown) * 100}%`;
+
+                // Movement
+                let dx = 0; let dy = 0;
+                if (keys['w'] || keys['arrowup']) dy -= this.speed;
+                if (keys['s'] || keys['arrowdown']) dy += this.speed;
+                if (keys['a'] || keys['arrowleft']) dx -= this.speed;
+                if (keys['d'] || keys['arrowright']) dx += this.speed;
+
+                if (dx !== 0 && dy !== 0) {
+                    const length = Math.hypot(dx, dy);
+                    dx = (dx / length) * this.speed; dy = (dy / length) * this.speed;
+                }
+
+                this.x += dx; this.y += dy;
+                this.x = Math.max(this.radius, Math.min(WORLD_SIZE - this.radius, this.x));
+                this.y = Math.max(this.radius, Math.min(WORLD_SIZE - this.radius, this.y));
+
+                obstacles.forEach(obs => handleCollision(this, obs));
+                this.draw();
+
+                // Basic Attack (Shooting)
+                if (mouse.isDown && performance.now() - mouse.lastShot > this.fireRate) {
+                    const angle = Math.atan2((mouse.y + camera.y) - this.y, (mouse.x + camera.x) - this.x);
+                    projectiles.push(new Projectile(this.x, this.y, angle, this.projSpeed, this.damage));
+                    mouse.lastShot = performance.now();
+                }
+            }
+
+            takeDamage(amount) {
+                if (this.shieldActive) return; // Immune!
+                if (this.invulnTime <= 0) {
+                    this.hp -= amount;
+                    this.invulnTime = 500;
+                    updateHUD();
+                    if (this.hp <= 0) endGame();
+                }
+            }
+        }
+
+        class Projectile {
+            constructor(x, y, angle, speed, damage) {
+                this.x = x; this.y = y; this.radius = 6; this.color = '#e76f51';
+                this.velocity = { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed };
+                this.damage = damage; this.life = 2000;
+            }
+            update(dt) {
+                this.x += this.velocity.x; this.y += this.velocity.y; this.life -= dt;
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color; ctx.fill();
+            }
+        }
+
+        class Enemy {
+            constructor(x, y) {
+                this.x = x; this.y = y; this.radius = 15; this.color = '#264653';
+                this.speed = 2.0 + (state.wave * 0.1); 
+                this.hp = 20 * (1 + state.wave * 0.2); 
+                // Increased damage based on wave
+                this.damage = 10 + (state.wave * 3);
+            }
+            update() {
+                const angle = Math.atan2(player.y - this.y, player.x - this.x);
+                this.x += Math.cos(angle) * this.speed; this.y += Math.sin(angle) * this.speed;
+
+                // Separation
+                enemies.forEach(other => {
+                    if (this !== other) {
+                        const dist = Math.hypot(this.x - other.x, this.y - other.y);
+                        if (dist < this.radius + other.radius) {
+                            const pushAngle = Math.atan2(this.y - other.y, this.x - other.x);
+                            this.x += Math.cos(pushAngle) * 1; this.y += Math.sin(pushAngle) * 1;
+                        }
+                    }
+                });
+                obstacles.forEach(obs => handleCollision(this, obs));
+                
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color; ctx.fill();
+            }
+        }
+
+        class Gem {
+            constructor(x, y) { this.x = x; this.y = y; this.radius = 6; this.color = '#2a9d8f'; }
+            update() {
+                const dist = Math.hypot(player.x - this.x, player.y - this.y);
+                if (dist < 120) {
+                    const angle = Math.atan2(player.y - this.y, player.x - this.x);
+                    this.x += Math.cos(angle) * 7; this.y += Math.sin(angle) * 7;
+                }
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color; ctx.fill();
+            }
+        }
+
+        // NEW: Medkit Class
+        class Medkit {
+            constructor(x, y) { 
+                this.x = x; 
+                this.y = y; 
+                this.radius = 8; 
+                this.color = '#e63946'; 
+            }
+            update() {
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffffff'; ctx.fill();
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x - 4, this.y - 1.5, 8, 3);
+                ctx.fillRect(this.x - 1.5, this.y - 4, 3, 8);
+            }
+        }
+
+        let player;
+
+        // --- UTILS & LOGIC ---
+
+        function handleCollision(circle, rect) {
+            let testX = circle.x, testY = circle.y;
+            if (circle.x < rect.x) testX = rect.x; else if (circle.x > rect.x + rect.w) testX = rect.x + rect.w;
+            if (circle.y < rect.y) testY = rect.y; else if (circle.y > rect.y + rect.h) testY = rect.y + rect.h;
+            let dist = Math.hypot(circle.x - testX, circle.y - testY);
+            if (dist < circle.radius) {
+                let overlap = circle.radius - dist;
+                circle.x += (circle.x - testX) / dist * overlap || 0;
+                circle.y += (circle.y - testY) / dist * overlap || 0;
+            }
+        }
+
+        function initMap() {
+            obstacles = [];
+            for(let i=0; i<40; i++) {
+                obstacles.push({ x: Math.random() * WORLD_SIZE, y: Math.random() * WORLD_SIZE, w: Math.random() * 100 + 50, h: Math.random() * 100 + 50 });
+            }
+        }
+
+        function drawEnvironment() {
+            // Desert Sand Background
+            ctx.fillStyle = '#E1C699';
+            ctx.fillRect(0, 0, WORLD_SIZE, WORLD_SIZE);
+            
+            // Dunes / Grid
+            ctx.strokeStyle = '#D2B48C';
+            ctx.lineWidth = 2;
+            for(let i=0; i<WORLD_SIZE; i+=150) {
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, WORLD_SIZE); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(WORLD_SIZE, i); ctx.stroke();
+            }
+
+            // Map Bounds
+            ctx.strokeStyle = '#8B4513';
+            ctx.lineWidth = 15;
+            ctx.strokeRect(0, 0, WORLD_SIZE, WORLD_SIZE);
+
+            // Obstacles (Rock formations / Cacti)
+            obstacles.forEach(obs => {
+                ctx.fillStyle = '#8B4513'; // Mesa Rock
+                ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+                ctx.fillStyle = '#A0522D';
+                ctx.fillRect(obs.x+5, obs.y+5, obs.w-10, obs.h-10);
+            });
+        }
+
+        function updateHUD() {
+            document.getElementById('wave-display').innerText = `Wave: ${state.wave}`;
+            document.getElementById('hp-display').innerText = `HP: ${Math.floor(player.hp)}/${player.maxHp}`;
+            document.getElementById('exp-bar').style.width = `${(state.exp / state.expNeeded) * 100}%`;
+        }
+
+        function spawnEnemy() {
+            if (state.enemiesToSpawn <= 0) return;
+            let x = camera.x + (Math.random() > 0.5 ? -50 : canvas.width + 50);
+            let y = camera.y + Math.random() * canvas.height;
+            enemies.push(new Enemy(x, y));
+            state.enemiesToSpawn--; state.enemiesAlive++;
+        }
+
+        function endGame() {
+            state.mode = 'gameover';
+            document.getElementById('end-screen').classList.remove('hidden');
+        }
+
+        // --- MAIN LOOP ---
+
+        function animate(timestamp) {
+            const dt = timestamp - lastTime;
+            lastTime = timestamp;
+
+            if (state.mode === 'playing') {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Camera Track
+                camera.x = Math.max(0, Math.min(WORLD_SIZE - canvas.width, player.x - canvas.width / 2));
+                camera.y = Math.max(0, Math.min(WORLD_SIZE - canvas.height, player.y - canvas.height / 2));
+
+                ctx.save();
+                ctx.translate(-camera.x, -camera.y);
+
+                drawEnvironment();
+
+                // Spawner
+                state.spawnTimer -= dt;
+                if (state.spawnTimer <= 0 && state.enemiesToSpawn > 0) {
+                    spawnEnemy(); state.spawnTimer = 600; 
+                }
+
+                // Gems & Level Up Trigger
+                gems.forEach((gem, index) => {
+                    gem.update();
+                    if (Math.hypot(player.x - gem.x, player.y - gem.y) < player.radius + gem.radius) {
+                        state.exp += 1;
+                        if (state.exp >= state.expNeeded) { 
+                            state.exp = 0; 
+                            state.expNeeded *= 1.2; 
+                            showLevelUp(); 
+                        }
+                        updateHUD();
+                        gems.splice(index, 1);
+                    }
+                });
+
+                // NEW: Medkit Pickup Logic
+                medkits.forEach((medkit, index) => {
+                    medkit.update();
+                    if (Math.hypot(player.x - medkit.x, player.y - medkit.y) < player.radius + medkit.radius) {
+                        player.hp = Math.min(player.maxHp, player.hp + 15); // Heal 15 HP
+                        updateHUD();
+                        medkits.splice(index, 1);
+                    }
+                });
+
+                // Player
+                player.update(dt);
+
+                // Projectiles
+                projectiles.forEach((p, pIndex) => {
+                    p.update(dt);
+                    let hitMap = obstacles.some(obs => p.x > obs.x && p.x < obs.x+obs.w && p.y > obs.y && p.y < obs.y+obs.h);
+                    if (p.life <= 0 || hitMap || p.x < 0 || p.x > WORLD_SIZE || p.y < 0 || p.y > WORLD_SIZE) projectiles.splice(pIndex, 1);
+                });
+
+                // Enemies
+                enemies.forEach((enemy, eIndex) => {
+                    enemy.update();
+                    if (Math.hypot(player.x - enemy.x, player.y - enemy.y) < player.radius + enemy.radius) player.takeDamage(enemy.damage);
+
+                    projectiles.forEach((p, pIndex) => {
+                        if (Math.hypot(p.x - enemy.x, p.y - enemy.y) < enemy.radius + p.radius) {
+                            enemy.hp -= p.damage;
+                            projectiles.splice(pIndex, 1);
+                            if (enemy.hp <= 0) {
+                                gems.push(new Gem(enemy.x, enemy.y));
+                                // NEW: 10% chance to drop medkit
+                                if (Math.random() < 0.10) medkits.push(new Medkit(enemy.x, enemy.y));
+                                enemies.splice(eIndex, 1);
+                                state.enemiesAlive--;
+                            }
+                        }
+                    });
+                    
+                    // Cleanup from AoE Legacy Strike
+                    if (enemy.hp <= 0 && enemies.includes(enemy)) {
+                         gems.push(new Gem(enemy.x, enemy.y));
+                         // NEW: 10% chance to drop medkit (AoE kills)
+                         if (Math.random() < 0.10) medkits.push(new Medkit(enemy.x, enemy.y));
+                         enemies.splice(enemies.indexOf(enemy), 1);
+                         state.enemiesAlive--;
+                    }
+                });
+
+                ctx.restore();
+
+                // Wave Progression
+                if (state.enemiesToSpawn <= 0 && state.enemiesAlive <= 0) {
+                    state.wave++;
+                    state.enemiesToSpawn = 10 + (state.wave * 5);
+                    updateHUD();
+                }
+            }
+            animationId = requestAnimationFrame(animate);
+        }
+
+        // --- INPUTS ---
+        window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+        window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+        window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+        window.addEventListener('mousedown', () => mouse.isDown = true);
+        window.addEventListener('mouseup', () => mouse.isDown = false);
+        window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
+
+        document.getElementById('btn-campaign').addEventListener('click', () => {
+            document.getElementById('main-menu').classList.add('hidden');
+            document.getElementById('hud').classList.remove('hidden');
+            
+            player = new Player(WORLD_SIZE/2, WORLD_SIZE/2);
+            initMap();
+            state.wave = 1; state.exp = 0; state.enemiesToSpawn = 15; state.mode = 'playing';
+            lastTime = performance.now();
+            updateHUD();
+        });
+
+        // NEW: LEVEL UP LOGIC & MENUS
+        function showLevelUp() {
+            state.mode = 'levelup'; 
+            document.getElementById('levelup-screen').classList.remove('hidden');
+        }
+
+        function resumeGame() {
+            document.getElementById('levelup-screen').classList.add('hidden');
+            state.mode = 'playing';
+            lastTime = performance.now(); 
+            updateHUD();
+        }
+
+        document.getElementById('btn-passive').addEventListener('click', () => {
+            player.maxHp += 10;
+            player.hp += 10;
+            player.regenRate += 1;
+            resumeGame();
+        });
+
+        document.getElementById('btn-active').addEventListener('click', () => {
+            player.damage += 5;
+            player.strikeCooldown *= 0.90; 
+            player.shieldCooldown *= 0.90; 
+            resumeGame();
+        });
+
+        document.getElementById('btn-menu').addEventListener('click', () => {
+            document.getElementById('end-screen').classList.add('hidden');
+            document.getElementById('hud').classList.add('hidden');
+            document.getElementById('main-menu').classList.remove('hidden');
+            projectiles = []; enemies = []; gems = []; medkits = []; state.mode = 'menu';
+        });
+
+        requestAnimationFrame(animate);
+    </script>
+</body>
+</html>
