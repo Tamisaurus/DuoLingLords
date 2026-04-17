@@ -3,29 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rubber-Hose vs Zombies</title>
+    <title>Night City Zombie Survivor</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #3e362e; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; user-select: none; }
+        body { margin: 0; overflow: hidden; background: #0a0a0e; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; user-select: none; }
         
         canvas { display: block; cursor: none; }
         
         .overlay { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.9); z-index: 10; }
         .hidden { display: none !important; }
         
-        h1 { font-size: 48px; color: #8bc34a; margin-bottom: 10px; text-shadow: 0 0 10px #4caf50; }
-        h2 { font-size: 32px; color: #8bc34a; margin: 10px 0; }
+        h1 { font-size: 48px; color: #ffeb3b; margin-bottom: 10px; text-shadow: 0 0 10px #fdd835; }
+        h2 { font-size: 32px; color: #ffeb3b; margin: 10px 0; }
         
-        .menu-box { background: #1a1a1a; padding: 30px; border-radius: 10px; border: 2px solid #8bc34a; text-align: center; min-width: 400px; max-height: 80vh; overflow-y: auto; }
+        .menu-box { background: #1a1a1a; padding: 30px; border-radius: 10px; border: 2px solid #ffeb3b; text-align: center; min-width: 400px; max-height: 80vh; overflow-y: auto; }
         .upgrade-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
         .upgrade-card { background: #2a2a2a; padding: 20px; border-radius: 8px; border: 2px solid #444; cursor: pointer; transition: 0.2s; display: flex; flex-direction: column; justify-content: center;}
-        .upgrade-card:hover { border-color: #8bc34a; transform: scale(1.05); background: #333; }
-        .upgrade-title { font-size: 20px; font-weight: bold; color: #8bc34a; margin-bottom: 8px; }
+        .upgrade-card:hover { border-color: #ffeb3b; transform: scale(1.05); background: #333; }
+        .upgrade-title { font-size: 20px; font-weight: bold; color: #ffeb3b; margin-bottom: 8px; }
         .upgrade-desc { font-size: 14px; color: #ddd; }
         .upgrade-type { font-size: 12px; color: #888; text-transform: uppercase; margin-bottom: 5px; }
         .upgrade-level { font-size: 12px; color: #00bcd4; font-weight: bold; margin-bottom: 5px; }
         
-        button { background: #8bc34a; color: #000; border: none; padding: 15px 30px; font-size: 20px; font-weight: bold; cursor: pointer; border-radius: 5px; margin: 10px 5px; transition: 0.2s; }
-        button:hover { background: #4caf50; color: white; transform: scale(1.05); }
+        button { background: #ffeb3b; color: #000; border: none; padding: 15px 30px; font-size: 20px; font-weight: bold; cursor: pointer; border-radius: 5px; margin: 10px 5px; transition: 0.2s; }
+        button:hover { background: #fdd835; color: white; transform: scale(1.05); }
 
         #hud { position: absolute; top: 0; left: 0; width: 100%; padding: 20px; box-sizing: border-box; pointer-events: none; z-index: 5; }
         .hud-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
@@ -34,17 +34,17 @@
         #hp-bar-container, #exp-bar-container { width: 300px; height: 25px; background: #333; border: 2px solid #555; border-radius: 10px; overflow: hidden; margin-top: 5px; }
         .progress-bar { height: 100%; transition: width 0.2s; }
         #hp-bar { background: linear-gradient(90deg, #e63946, #c1121f); }
-        #exp-bar { background: linear-gradient(90deg, #8bc34a, #4caf50); }
+        #exp-bar { background: linear-gradient(90deg, #ffeb3b, #fdd835); }
         
         #skills-hud { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 15px; }
-        .skill-icon { width: 60px; height: 60px; background: #1a1a1a; border: 3px solid #8bc34a; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; font-size: 11px; text-align: center; position: relative; overflow: hidden; }
+        .skill-icon { width: 60px; height: 60px; background: #1a1a1a; border: 3px solid #ffeb3b; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; font-size: 11px; text-align: center; position: relative; overflow: hidden; }
         .cooldown-overlay { position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(0,0,0,0.8); height: 0%; transition: height 0.1s; }
         .skill-text { position: relative; z-index: 2; line-height: 1.2; }
         .skill-lvl { color: #00bcd4; font-size: 10px; }
         
         .stats-panel { position: absolute; top: 100px; left: 20px; background: rgba(26, 26, 26, 0.9); padding: 15px; border-radius: 8px; border: 2px solid #444; font-size: 14px; }
         .stat-row { margin: 5px 0; }
-        .stat-label { color: #8bc34a; font-weight: bold; }
+        .stat-label { color: #ffeb3b; font-weight: bold; }
         
         .boss-warning { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 72px; color: #e63946; text-shadow: 4px 4px 0 #000; animation: pulse 1s infinite; z-index: 8; }
         @keyframes pulse { 0%, 100% { transform: translate(-50%, -50%) scale(1); } 50% { transform: translate(-50%, -50%) scale(1.1); } }
@@ -81,9 +81,9 @@
     </div>
 
     <div id="main-menu" class="overlay">
-        <h1>ZOMBIE SURVIVOR</h1>
+        <h1>NIGHT CITY SURVIVOR</h1>
         <div class="menu-box">
-            <p style="font-size: 18px; color: #ddd;">The Horde is Here!</p>
+            <p style="font-size: 18px; color: #ddd;">Escape the Abandoned Blocks!</p>
             <p style="font-size: 14px; color: #aaa;">WASD to move. Mouse to aim. Left-Click to Shoot.</p>
             <button id="btn-campaign">Start Run</button>
         </div>
@@ -105,7 +105,7 @@
         <h1>VICTORY!</h1>
         <div class="menu-box">
             <h2>You survived all 20 waves!</h2>
-            <p style="font-size: 18px; color: #8bc34a;">The horde is defeated!</p>
+            <p style="font-size: 18px; color: #ffeb3b;">The blocks are clear!</p>
             <button id="btn-menu-victory">Return to Menu</button>
         </div>
     </div>
@@ -143,7 +143,8 @@
         };
 
         let projectiles = [], enemies = [], gems = [], medkits = [], floatingTexts = [], effects = [];
-        let mines = [], turrets = []; // New arrays for spawned items
+        let mines = [], turrets = []; 
+        let streetlights = []; 
         let keys = {};
         let mouse = { x: canvas.width/2, y: canvas.height/2, isDown: false };
 
@@ -158,7 +159,7 @@
         // --- SKILL & WEAPON DATABASE ---
         const WEAPON_DB = {
             spudGun: {
-                id: 'spudGun', name: 'Pistol', type: 'weapon', baseCd: 350, baseDmg: 20, baseAmt: 1, // BUFFED CD
+                id: 'spudGun', name: 'Pistol', type: 'weapon', baseCd: 350, baseDmg: 20, baseAmt: 1, 
                 desc: "Click to shoot towards mouse.",
                 fire: (w, p) => {
                     if (mouse.isDown) {
@@ -179,7 +180,7 @@
                     if (mouse.isDown) {
                         let baseAngle = Math.atan2(mouse.y - p.y, mouse.x - p.x);
                         for(let i=0; i<w.amount; i++) {
-                            let angle = baseAngle + (Math.random() - 0.5) * 0.4; // High spread
+                            let angle = baseAngle + (Math.random() - 0.5) * 0.4; 
                             projectiles.push(new Projectile(p.x, p.y, angle, 14, w.damage * p.dmgMult, false, false, 'normal'));
                         }
                         return true; 
@@ -237,7 +238,6 @@
                 id: 'orbitalSaw', name: 'Orbital Saws', type: 'weapon', baseCd: 5000, baseDmg: 20, baseAmt: 2,
                 desc: "Saws permanently orbit you.",
                 fire: (w, p) => {
-                    // Instead of true fire, it spawns long-lasting orbitals
                     for(let i=0; i<w.amount; i++) {
                         let angle = (Math.PI * 2 / w.amount) * i;
                         projectiles.push(new Projectile(p.x, p.y, angle, 2, w.damage * p.dmgMult, true, false, 'orbital'));
@@ -381,17 +381,15 @@
             constructor(x, y, damage) {
                 this.x = x; this.y = y; this.radius = 8; this.damage = damage;
                 this.active = false;
-                this.armTimer = 1000; // takes 1 second to arm
+                this.armTimer = 1000; 
             }
             update(dt) {
                 if(this.armTimer > 0) this.armTimer -= dt;
                 else this.active = true;
 
-                // Draw Mine
                 ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2);
                 ctx.fillStyle = this.active ? '#ff0000' : '#555'; ctx.fill();
                 ctx.lineWidth = 2; ctx.strokeStyle = '#000'; ctx.stroke();
-                // Blinking light
                 if (this.active && Math.floor(performance.now() / 200) % 2 === 0) {
                     ctx.beginPath(); ctx.arc(this.x, this.y, 3, 0, Math.PI*2);
                     ctx.fillStyle = '#ffaaaa'; ctx.fill();
@@ -402,7 +400,7 @@
         class Turret {
             constructor(x, y, damage) {
                 this.x = x; this.y = y; this.radius = 12; this.damage = damage;
-                this.life = 15000; // Lives for 15 seconds
+                this.life = 15000; 
                 this.fireTimer = 0;
             }
             update(dt) {
@@ -415,14 +413,12 @@
                     angle = Math.atan2(target.y - this.y, target.x - this.x);
                     if(this.fireTimer <= 0) {
                         projectiles.push(new Projectile(this.x, this.y, angle, 15, this.damage, false, false, 'normal'));
-                        this.fireTimer = 400; // fire rate
+                        this.fireTimer = 400; 
                     }
                 }
 
-                // Draw Base
                 ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2);
                 ctx.fillStyle = '#555'; ctx.fill(); ctx.stroke();
-                // Draw Gun Barrel
                 ctx.save();
                 ctx.translate(this.x, this.y);
                 ctx.rotate(angle);
@@ -470,9 +466,9 @@
                 this.speed = 3.5; 
                 
                 this.dmgMult = 1.0;
-                this.fireRateMult = 1.0; // Lower is faster
-                this.armor = 0; // % damage reduction
-                this.vamp = 0; // % chance to heal 1 hp on kill
+                this.fireRateMult = 1.0; 
+                this.armor = 0; 
+                this.vamp = 0; 
 
                 this.invulnTime = 0; 
                 this.regenRate = 1; 
@@ -482,6 +478,13 @@
                 this.strikeActive = false; this.strikeRadius = 0; this.strikeX = 0; this.strikeY = 0;
                 
                 this.weapons = [];
+
+                // Animation variables
+                this.walkTick = 0; 
+                this.idleTick = 0;
+                this.limbSwing = 0;
+                this.isMoving = false;
+                this.facingRight = true;
             }
 
             addWeapon(id) {
@@ -491,39 +494,67 @@
 
             draw() {
                 ctx.save();
+                ctx.translate(this.x, this.y);
+
+                // Shield Layer
                 if (this.shieldActive) {
-                    ctx.beginPath(); ctx.arc(this.x, this.y, this.radius + 8, 0, Math.PI * 2);
+                    ctx.beginPath(); ctx.arc(0, 0, this.radius + 8, 0, Math.PI * 2);
                     ctx.fillStyle = 'rgba(0, 200, 255, 0.4)'; ctx.fill();
                     ctx.lineWidth = 2; ctx.strokeStyle = '#00c8ff'; ctx.stroke();
                 }
 
                 ctx.globalAlpha = this.invulnTime > 0 && !this.shieldActive ? 0.5 : 1;
 
-                // Rubber Hose Arms
+                // Flip orientation based on mouse position
+                if (!this.facingRight) {
+                    ctx.scale(-1, 1);
+                }
+
+                let swing = this.limbSwing;
+                let breathOffset = this.isMoving ? 0 : Math.sin(this.idleTick) * 1.5;
+
                 ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
-                ctx.beginPath(); ctx.moveTo(this.x - 8, this.y); 
-                ctx.quadraticCurveTo(this.x - 18, this.y + 8, this.x - 12, this.y + 15); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(this.x + 8, this.y); 
-                ctx.quadraticCurveTo(this.x + 18, this.y + 8, this.x + 12, this.y + 15); ctx.stroke();
                 
+                // Back Leg
+                ctx.beginPath(); ctx.moveTo(-this.radius/3, this.radius + breathOffset); 
+                ctx.lineTo(-this.radius/3 - swing, this.radius + 8); ctx.stroke();
                 ctx.fillStyle = '#fff';
-                ctx.beginPath(); ctx.arc(this.x - 12, this.y + 15, 4, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-                ctx.beginPath(); ctx.arc(this.x + 12, this.y + 15, 4, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+                ctx.beginPath(); ctx.arc(-this.radius/3 - swing, this.radius + 8, 4, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+                
+                // Front Leg
+                ctx.beginPath(); ctx.moveTo(this.radius/3, this.radius + breathOffset); 
+                ctx.lineTo(this.radius/3 + swing, this.radius + 8); ctx.stroke();
+                ctx.fillStyle = '#fff';
+                ctx.beginPath(); ctx.arc(this.radius/3 + swing, this.radius + 8, 4, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+
+                // Back Arm
+                ctx.beginPath(); ctx.moveTo(-this.radius, breathOffset); 
+                ctx.lineTo(-this.radius - 8 + swing, 8 + breathOffset); ctx.stroke();
+                ctx.beginPath(); ctx.arc(-this.radius - 8 + swing, 8 + breathOffset, 4, 0, Math.PI*2); ctx.fill(); ctx.stroke();
 
                 // Body
                 ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.arc(0, breathOffset, this.radius, 0, Math.PI * 2);
                 ctx.fillStyle = '#C29B62'; 
                 ctx.fill();
                 ctx.lineWidth = 2; ctx.strokeStyle = '#8B5A2B'; ctx.stroke();
 
-                // Eyes
+                // Eyes (offset to look forward based on facingRight scale)
                 ctx.fillStyle = '#000';
-                ctx.beginPath(); ctx.arc(this.x - 4, this.y - 3, 2, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(this.x + 4, this.y - 3, 2, 0, Math.PI*2); ctx.fill();
-                
+                ctx.beginPath(); ctx.arc(2, -3 + breathOffset, 2, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(8, -3 + breathOffset, 2, 0, Math.PI*2); ctx.fill();
+
+                // Front Arm
+                ctx.beginPath(); ctx.moveTo(this.radius, breathOffset); 
+                ctx.lineTo(this.radius + 8 - swing, 8 + breathOffset); ctx.stroke();
+                ctx.fillStyle = '#fff';
+                ctx.beginPath(); ctx.arc(this.radius + 8 - swing, 8 + breathOffset, 4, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+
+                // Nameplate (unflip text so it's readable)
+                if (!this.facingRight) ctx.scale(-1, 1);
                 ctx.fillStyle = 'white'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
-                ctx.fillText("Survivor", this.x, this.y - 20);
+                ctx.fillText("Survivor", 0, -20);
+                
                 ctx.restore();
 
                 if (this.strikeActive) {
@@ -567,13 +598,25 @@
                 if (keys['a'] || keys['arrowleft']) dx -= this.speed;
                 if (keys['d'] || keys['arrowright']) dx += this.speed;
 
-                if (dx !== 0 && dy !== 0) {
+                this.isMoving = (dx !== 0 || dy !== 0);
+
+                // Smooth Animation Logic
+                if (this.isMoving) {
                     const length = Math.hypot(dx, dy);
                     dx = (dx / length) * this.speed;
                     dy = (dy / length) * this.speed;
+                    
+                    this.walkTick += dt * 0.015 * this.speed;
+                    this.limbSwing = Math.sin(this.walkTick) * 8; 
+                } else {
+                    this.limbSwing *= 0.8; // smoothly return to resting position
                 }
+                
+                this.idleTick += dt * 0.003;
+                this.facingRight = mouse.x >= this.x;
 
-                this.x += dx; this.y += dy;
+                this.x += dx; 
+                this.y += dy;
                 
                 this.x = Math.max(this.radius, Math.min(canvas.width - this.radius, this.x));
                 this.y = Math.max(this.radius, Math.min(canvas.height - this.radius, this.y));
@@ -609,7 +652,7 @@
                 this.piercing = piercing;
                 this.isEnemy = isEnemy;
                 this.hitList = []; 
-                this.dist = 60; // Orbital distance
+                this.dist = 60; 
             }
             update(dt) {
                 let ts = dt / 16; 
@@ -619,7 +662,6 @@
                     this.x = player.x + Math.cos(this.angle) * this.dist;
                     this.y = player.y + Math.sin(this.angle) * this.dist;
                     this.life -= dt;
-                    // Orbitals allow re-hitting the same enemy after a brief delay, clear list periodically
                     if (Math.random() < 0.05) this.hitList = [];
                 } else if (this.type === 'missile') {
                     let targets = getNearestEnemies(this.x, this.y, 1);
@@ -661,7 +703,7 @@
                 else if (rand < 0.4) this.type = 'runner'; 
                 else this.type = 'normal'; 
 
-                let waveMult = 1 + (state.wave * 0.30); // Tougher scaling
+                let waveMult = 1 + (state.wave * 0.30); 
                 
                 if (this.type === 'boss') {
                     this.radius = 35; this.color = '#1b5e20'; 
@@ -683,7 +725,7 @@
                 }
                 
                 this.hp = this.maxHp;
-                this.walkTick = Math.random() * 100; // For limb animation
+                this.walkTick = Math.random() * 100; 
                 this.angle = 0;
             }
             
@@ -700,7 +742,7 @@
                 } else {
                     this.x += Math.cos(this.angle) * this.speed;
                     this.y += Math.sin(this.angle) * this.speed;
-                    this.walkTick += dt * this.speed * 0.015; // Animation speed based on move speed
+                    this.walkTick += dt * this.speed * 0.015; 
                 }
 
                 enemies.forEach(other => {
@@ -752,7 +794,6 @@
 
                 ctx.restore();
 
-                // Health Bar
                 const hpPercent = this.hp / this.maxHp;
                 const barWidth = this.radius * 2;
                 ctx.fillStyle = '#333'; ctx.fillRect(this.x - barWidth/2, this.y - this.radius - 12, barWidth, 3);
@@ -810,15 +851,50 @@
             }
         }
 
+        // --- BACKGROUND ENTITIES ---
+        class Streetlight {
+            constructor(x, y) {
+                this.x = x; this.y = y; this.radius = 80;
+                this.flickerOffset = Math.random() * 100;
+            }
+            draw(dt) {
+                // Occasional flicker math
+                let opacity = 0.4;
+                if (Math.sin(performance.now() * 0.01 + this.flickerOffset) > 0.8) opacity = 0.1;
+
+                ctx.beginPath(); ctx.arc(this.x, this.y, 4, 0, Math.PI*2);
+                ctx.fillStyle = '#111'; ctx.fill();
+
+                ctx.save();
+                ctx.globalCompositeOperation = 'lighter'; 
+                let gradient = ctx.createRadialGradient(this.x, this.y, 10, this.x, this.y, this.radius);
+                gradient.addColorStop(0, `rgba(255, 235, 59, ${opacity})`); 
+                gradient.addColorStop(0.5, `rgba(255, 193, 7, ${opacity * 0.3})`); 
+                gradient.addColorStop(1, 'rgba(0, 0, 0, 0)'); 
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2);
+                ctx.fillStyle = gradient; ctx.fill();
+                ctx.restore();
+            }
+        }
+
         // --- GLOBAL FUNCTIONS ---
-        function drawEnvironment() {
-            ctx.fillStyle = '#222'; 
+        function drawEnvironment(dt) {
+            // Dark night city ground
+            ctx.fillStyle = '#0a0a0e'; 
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)'; ctx.lineWidth = 1;
-            for(let i=0; i<canvas.width; i+=50) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke(); }
-            for(let i=0; i<canvas.height; i+=50) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); ctx.stroke(); }
+            // Subtle road markings 
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)'; ctx.lineWidth = 2;
+            for(let i=100; i<canvas.width; i+=200) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke(); }
             
+            // Streetlights
+            streetlights.forEach(light => light.draw(dt));
+
+            // Building Outlines
+            ctx.fillStyle = '#050507';
+            ctx.fillRect(0, 0, canvas.width, 40); 
+            ctx.fillRect(0, canvas.height - 40, canvas.width, 40); 
+
             ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 20;
             ctx.strokeRect(0, 0, canvas.width, canvas.height);
         }
@@ -975,12 +1051,12 @@
 
                 if (state.mode === 'playing') {
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    drawEnvironment();
+                    drawEnvironment(dt);
 
                     state.spawnTimer -= dt;
                     if (state.spawnTimer <= 0 && state.enemiesToSpawn > 0) {
                         spawnEnemy();
-                        state.spawnTimer = 300; // FAST spawns
+                        state.spawnTimer = 300; 
                     }
 
                     for (let i = gems.length - 1; i >= 0; i--) {
@@ -991,7 +1067,7 @@
                             if (state.exp >= state.expNeeded) {
                                 state.level++; 
                                 state.exp -= state.expNeeded;
-                                state.expNeeded = Math.floor(state.expNeeded * 1.15); // Easier scaling
+                                state.expNeeded = Math.floor(state.expNeeded * 1.15); 
                                 showLevelUp();
                             }
                             updateHUD();
@@ -1116,7 +1192,7 @@
                     // CROSSHAIR
                     ctx.beginPath();
                     ctx.arc(mouse.x, mouse.y, 8, 0, Math.PI * 2);
-                    ctx.strokeStyle = '#00ff00';
+                    ctx.strokeStyle = '#ffff00';
                     ctx.lineWidth = 2;
                     ctx.stroke();
                     ctx.beginPath();
@@ -1132,7 +1208,7 @@
                         state.wave++;
                         
                         state.bossActive = state.wave % 10 === 0;
-                        state.enemiesToSpawn = 30 + (state.wave * 12); // MASSIVE HORDE
+                        state.enemiesToSpawn = 30 + (state.wave * 12); 
 
                         if (state.bossActive) {
                             enemies.push(new Enemy(canvas.width/2, -50, true)); 
@@ -1174,6 +1250,12 @@
             state.mode = 'playing';
             projectiles = []; enemies = []; gems = []; medkits = []; floatingTexts = []; effects = []; mines = []; turrets = [];
             
+            // Randomly place streetlights
+            streetlights = [];
+            for(let i=0; i<12; i++) {
+                streetlights.push(new Streetlight(Math.random() * canvas.width, 50 + Math.random() * (canvas.height - 100)));
+            }
+
             buildSkillHUD();
             updateHUD();
             lastTime = performance.now();
