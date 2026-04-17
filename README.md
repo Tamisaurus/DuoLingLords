@@ -1,2 +1,2 @@
 # DuoLingLords
-Git Cloning Device
+Raphael Dorio and Aceiord's Collaborative TD-Shooting Game
