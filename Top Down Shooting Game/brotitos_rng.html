@@ -610,6 +610,18 @@
             sfx: true 
         };
 
+        // #8: Load save from localStorage on startup
+        (function loadSave() {
+            try {
+                let stored = localStorage.getItem('brotito_save');
+                if (stored) Object.assign(SaveData, JSON.parse(stored));
+            } catch(e) {}
+        })();
+
+        function persistSave() {
+            try { localStorage.setItem('brotito_save', JSON.stringify(SaveData)); } catch(e) {}
+        }
+
         let GameState = {
             mode: 'menu', 
             runType: 'campaign', 
@@ -636,7 +648,8 @@
             
             toggleSFX: function() { 
                 SaveData.sfx = !SaveData.sfx; 
-                document.getElementById('toggle-sfx').innerText = SaveData.sfx ? "ON" : "OFF"; 
+                document.getElementById('toggle-sfx').innerText = SaveData.sfx ? "ON" : "OFF";
+                persistSave(); // #8
             },
             
             playTone: function(freq, type, duration, volSlide = false) {
@@ -781,6 +794,7 @@
                     
                     d.onclick = () => { 
                         SaveData.characterId = c.id; 
+                        persistSave(); // #8
                         this.buildCharacterMenu(); 
                         this.renderHubCharacter(); 
                     };
@@ -1510,7 +1524,7 @@
             }
         }
 
-        
+        }
 
         // --- MINE CLASS (#5) ---
         class Mine {
@@ -1818,6 +1832,7 @@
                 if (win) {
                     if (GameState.runType === 'campaign' && this.absStage >= SaveData.maxStage) {
                         SaveData.maxStage = this.absStage + 1;
+                        persistSave(); // #8
                     }
                     UI.showScreen('victory-screen');
                 } else {
