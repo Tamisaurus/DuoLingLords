@@ -701,6 +701,14 @@
             explosion: function() { 
                 this.playNoise(0.5, 400, 'lowpass'); 
                 this.playTone(100, 'square', 0.4, true); 
+            },
+            // Wave clear fanfare (#4)
+            waveClear: function() {
+                if (!SaveData.sfx || !this.ctx) return;
+                this.playTone(500, 'sine', 0.1);
+                setTimeout(() => this.playTone(700, 'sine', 0.1), 120);
+                setTimeout(() => this.playTone(900, 'sine', 0.15), 240);
+                setTimeout(() => this.playTone(1200, 'sine', 0.3), 380);
             }
         };
 
@@ -1840,6 +1848,10 @@
                             this.endRun(true);
                             return; 
                         }
+
+                        // Wave clear fanfare (#4)
+                        AudioEngine.waveClear();
+                        floatingTexts.push(new FloatingText(canvas.width / 2, canvas.height / 2, `WAVE ${GameState.wave} CLEAR!`, '#4caf50'));
                         
                         GameState.wave++;
                         GameState.bossActive = GameState.wave % 10 === 0 || (GameState.runType === 'campaign' && GameState.wave === 5);
