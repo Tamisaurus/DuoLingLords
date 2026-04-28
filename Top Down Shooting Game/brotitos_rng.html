@@ -947,6 +947,40 @@
                     } 
                     return false;
                 }
+            },
+            // Mine weapon (#5)
+            mineDrop: {
+                id: 'mineDrop',
+                name: 'Mines',
+                type: 'weapon',
+                baseCd: 3000,
+                baseDmg: 60,
+                baseAmt: 1,
+                fire: (w, p) => {
+                    for (let i = 0; i < w.amount; i++) {
+                        let ox = (Math.random() - 0.5) * 60;
+                        let oy = (Math.random() - 0.5) * 60;
+                        mines.push(new Mine(p.x + ox, p.y + oy, w.damage * p.dmgMult));
+                    }
+                    return true;
+                }
+            },
+            // Turret weapon (#5)
+            turretDrop: {
+                id: 'turretDrop',
+                name: 'Turret',
+                type: 'weapon',
+                baseCd: 8000,
+                baseDmg: 15,
+                baseAmt: 1,
+                fire: (w, p) => {
+                    for (let i = 0; i < w.amount; i++) {
+                        let ox = (Math.random() - 0.5) * 80;
+                        let oy = (Math.random() - 0.5) * 80;
+                        turrets.push(new Turret(p.x + ox, p.y + oy, w.damage * p.dmgMult));
+                    }
+                    return true;
+                }
             }
         };
 
@@ -1473,6 +1507,115 @@
             }
         }
 
+        
+
+        // --- MINE CLASS (#5) ---
+        class Mine {
+            constructor(x, y, damage) {
+                this.x = x;
+                this.y = y;
+                this.radius = 8;
+                this.damage = damage;
+                this.armed = false;
+                this.armTimer = 800; // arm after 0.8s so player doesn't self-trigger
+            }
+            update(dt) {
+                if (!this.armed) {
+                    this.armTimer -= dt;
+                    if (this.armTimer <= 0) this.armed = true;
+                }
+
+                // Draw mine
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.armed ? '#e63946' : '#888';
+                ctx.fill();
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                // Cross on top
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(this.x - 4, this.y); ctx.lineTo(this.x + 4, this.y);
+                ctx.moveTo(this.x, this.y - 4); ctx.lineTo(this.x, this.y + 4);
+                ctx.stroke();
+
+                if (!this.armed) return false;
+
+                // Check enemy proximity
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    let e = enemies[i];
+                    if (Math.hypot(e.x - this.x, e.y - this.y) < 40) {
+                        // Explode — damage all enemies in radius
+                        enemies.forEach(en => {
+                            if (Math.hypot(en.x - this.x, en.y - this.y) < 80) {
+                                en.takeDamage(this.damage);
+                            }
+                        });
+                        effects.push(new Explosion(this.x, this.y, 80));
+                        AudioEngine.explosion();
+                        return true; // signal to remove
+                    }
+                }
+                return false;
+            }
+        }
+
+        // --- TURRET CLASS (#5) ---
+        class Turret {
+            constructor(x, y, damage) {
+                this.x = x;
+                this.y = y;
+                this.radius = 10;
+                this.damage = damage;
+                this.life = 10000; // lasts 10s
+                this.shootTimer = 0;
+                this.shootCd = 800;
+            }
+            update(dt) {
+                this.life -= dt;
+                this.shootTimer -= dt;
+
+                let target = getNearestEnemies(this.x, this.y, 1, 350)[0];
+
+                if (target && this.shootTimer <= 0) {
+                    let ang = Math.atan2(target.y - this.y, target.x - this.x);
+                    projectiles.push(new Projectile(this.x, this.y, ang, 10, this.damage, false, false, 'normal'));
+                    AudioEngine.shoot();
+                    this.shootTimer = this.shootCd;
+                }
+
+                // Draw turret base
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#607d8b';
+                ctx.fill();
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Draw barrel pointing at nearest enemy
+                if (target) {
+                    let ang = Math.atan2(target.y - this.y, target.x - this.x);
+                    ctx.save();
+                    ctx.translate(this.x, this.y);
+                    ctx.rotate(ang);
+                    ctx.fillStyle = '#333';
+                    ctx.fillRect(0, -3, 16, 6);
+                    ctx.restore();
+                }
+
+                // Life bar
+                ctx.fillStyle = '#333';
+                ctx.fillRect(this.x - this.radius, this.y - this.radius - 8, this.radius * 2, 3);
+                ctx.fillStyle = '#4caf50';
+                ctx.fillRect(this.x - this.radius, this.y - this.radius - 8, this.radius * 2 * (this.life / 10000), 3);
+
+                return this.life <= 0; // signal to remove when expired
+            }
+        }
+
         // --- GAME CONTROLLER ---
         const Game = {
             startRun: function(type, chapter=1, stage=1, theme='city', absStage=1) {
@@ -1495,6 +1638,8 @@
                 medkits = []; 
                 floatingTexts = []; 
                 effects = []; 
+                mines = [];
+                turrets = [];
                 streetlights = [];
                 
                 for (let i = 0; i < 12; i++) {
@@ -1820,6 +1965,20 @@
                         effects[i].update(dt);
                         if (effects[i].life <= 0) {
                             effects.splice(i, 1); 
+                        }
+                    }
+
+                    // Update mines (#5)
+                    for (let i = mines.length - 1; i >= 0; i--) {
+                        if (mines[i].update(dt)) {
+                            mines.splice(i, 1);
+                        }
+                    }
+
+                    // Update turrets (#5)
+                    for (let i = turrets.length - 1; i >= 0; i--) {
+                        if (turrets[i].update(dt)) {
+                            turrets.splice(i, 1);
                         }
                     }
 
