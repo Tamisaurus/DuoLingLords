@@ -607,22 +607,27 @@
         const CHARACTERS = [
             { 
                 id: 'classic', name: 'Classic', color: '#C29B62', eyes: '#000', desc: 'Well-rounded.', 
+                unlockStage: 1,
                 stats: { hp: 1, spd: 1, dmg: 1, armor: 0, vamp: 0, regen: 1 } 
             },
             { 
                 id: 'speedy', name: 'Speedy', color: '#ffeb3b', eyes: '#000', desc: '+Speed, -HP', 
+                unlockStage: 3,
                 stats: { hp: 0.7, spd: 1.4, dmg: 1, armor: 0, vamp: 0, regen: 1 } 
             },
             { 
                 id: 'chunky', name: 'Chunky', color: '#8d6e63', eyes: '#fff', desc: '+HP/Armor, -Speed', 
+                unlockStage: 6,
                 stats: { hp: 1.5, spd: 0.7, dmg: 1, armor: 0.3, vamp: 0, regen: 1 } 
             },
             { 
                 id: 'ghost', name: 'Ghost', color: '#e0e0e0', eyes: '#e63946', desc: '+Vampirism, -HP', 
+                unlockStage: 11,
                 stats: { hp: 0.6, spd: 1.1, dmg: 1, armor: 0, vamp: 0.1, regen: 1 } 
             },
             { 
                 id: 'demon', name: 'Demon', color: '#e63946', eyes: '#ffeb3b', desc: '+40% DMG, No Regen', 
+                unlockStage: 16,
                 stats: { hp: 1, spd: 1, dmg: 1.4, armor: 0, vamp: 0, regen: 0 } 
             }
         ];
@@ -812,24 +817,27 @@
                 container.innerHTML = '';
                 
                 CHARACTERS.forEach(c => {
+                    let isUnlocked = SaveData.maxStage >= c.unlockStage; // #12
                     let d = document.createElement('div');
-                    d.className = `avatar-card ${SaveData.characterId === c.id ? 'selected' : ''}`;
+                    d.className = `avatar-card ${SaveData.characterId === c.id ? 'selected' : ''} ${!isUnlocked ? 'stage-locked' : ''}`;
                     
                     d.innerHTML = `
-                        <div class="avatar-preview" style="background:${c.color};">
-                            <div style="position: absolute; top: 30%; left: 25%; width: 15%; height: 15%; background: ${c.eyes}; border-radius: 50%;"></div>
-                            <div style="position: absolute; top: 30%; right: 25%; width: 15%; height: 15%; background: ${c.eyes}; border-radius: 50%;"></div>
+                        <div class="avatar-preview" style="background:${isUnlocked ? c.color : '#333'};">
+                            <div style="position: absolute; top: 30%; left: 25%; width: 15%; height: 15%; background: ${isUnlocked ? c.eyes : '#555'}; border-radius: 50%;"></div>
+                            <div style="position: absolute; top: 30%; right: 25%; width: 15%; height: 15%; background: ${isUnlocked ? c.eyes : '#555'}; border-radius: 50%;"></div>
                         </div>
-                        <div style="font-family:'Righteous'; font-size: 20px; color: var(--primary);">${c.name}</div>
-                        <div class="avatar-stat-desc">${c.desc}</div>
+                        <div style="font-family:'Righteous'; font-size: 20px; color: var(--primary);">${isUnlocked ? c.name : '???'}</div>
+                        <div class="avatar-stat-desc">${isUnlocked ? c.desc : 'Reach stage ' + c.unlockStage}</div>
                     `;
                     
-                    d.onclick = () => { 
-                        SaveData.characterId = c.id; 
-                        persistSave(); // #8
-                        this.buildCharacterMenu(); 
-                        this.renderHubCharacter(); 
-                    };
+                    if (isUnlocked) {
+                        d.onclick = () => { 
+                            SaveData.characterId = c.id; 
+                            persistSave(); // #8
+                            this.buildCharacterMenu(); 
+                            this.renderHubCharacter(); 
+                        };
+                    }
                     
                     container.appendChild(d);
                 });
@@ -1273,36 +1281,38 @@
                 this.isBoss = isBoss;
                 
                 let rand = Math.random(); 
-                let waveMult = 1 + (GameState.wave * 0.25); 
+                let waveMult = 1 + (GameState.wave * 0.25);
+                // #13: endless gets an extra multiplier every 5 waves
+                let endlessMult = (GameState.runType === 'endless') ? 1 + Math.floor(GameState.wave / 5) * 0.3 : 1;
                 
                 if (isBoss) { 
                     this.radius = 35; 
                     this.color = '#1b5e20'; 
-                    this.speed = 0.4; 
-                    this.maxHp = 500 * waveMult; 
-                    this.damage = 30 * waveMult; 
+                    this.speed = 0.4 * endlessMult; 
+                    this.maxHp = 500 * waveMult * endlessMult; 
+                    this.damage = 30 * waveMult * endlessMult; 
                     this.type = 'boss';
                 } else if (rand < 0.15) { 
                     this.radius = 12; 
                     this.color = '#78909c'; 
-                    this.speed = 0.6; 
-                    this.maxHp = 20 * waveMult; 
-                    this.damage = 10 * waveMult; 
+                    this.speed = 0.6 * endlessMult; 
+                    this.maxHp = 20 * waveMult * endlessMult; 
+                    this.damage = 10 * waveMult * endlessMult; 
                     this.type = 'shooter'; 
                     this.shootTimer = 2000;
                 } else if (rand < 0.4) { 
                     this.radius = 10; 
                     this.color = '#e53935'; 
-                    this.speed = 1.4; 
-                    this.maxHp = 10 * waveMult; 
-                    this.damage = 15 * waveMult; 
+                    this.speed = 1.4 * endlessMult; 
+                    this.maxHp = 10 * waveMult * endlessMult; 
+                    this.damage = 15 * waveMult * endlessMult; 
                     this.type = 'runner';
                 } else { 
                     this.radius = 12; 
                     this.color = '#4caf50'; 
-                    this.speed = 0.85; 
-                    this.maxHp = 25 * waveMult; 
-                    this.damage = 10 * waveMult; 
+                    this.speed = 0.85 * endlessMult; 
+                    this.maxHp = 25 * waveMult * endlessMult; 
+                    this.damage = 10 * waveMult * endlessMult; 
                     this.type = 'normal';
                 } 
                 
@@ -1555,8 +1565,6 @@
                 ctx.restore();
             }
         }
-
-        
 
         // --- MINE CLASS (#5) ---
         class Mine {
