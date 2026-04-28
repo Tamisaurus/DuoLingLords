@@ -600,6 +600,7 @@
                 <div class="bar-container">
                     <div id="ui-exp-bar" class="bar-fill" style="background: var(--primary); width: 0%;"></div>
                 </div>
+                <div class="text-shadow" style="font-size: 18px; margin-top: 2px; color: var(--primary);" id="ui-score">Score: 0</div>
             </div>
         </div>
         
@@ -1858,6 +1859,7 @@
                 document.getElementById('ui-hp-text').innerText = `${Math.floor(player.hp)}/${player.maxHp}`;
                 document.getElementById('ui-hp-bar').style.width = `${(player.hp / player.maxHp) * 100}%`;
                 document.getElementById('ui-exp-bar').style.width = `${(player.exp / player.expNeeded) * 100}%`;
+                document.getElementById('ui-score').innerText = `Score: ${GameState.score}`;
                 
                 document.getElementById('stat-damage').innerText = `${Math.floor(player.dmgMult * 100)}%`;
                 document.getElementById('stat-firerate').innerText = `${Math.floor((1 / player.fireRateMult) * 100)}%`;
