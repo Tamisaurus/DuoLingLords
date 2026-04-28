@@ -1730,11 +1730,11 @@
                 document.getElementById('stat-vamp').innerText = `${Math.floor(player.vamp * 100)}%`;
                 
                 let hudHtml = '';
-                player.weapons.forEach(w => {
+                player.weapons.forEach((w, idx) => {
                     let pct = w.cooldown ? (w.cdTimer / w.cooldown) * 100 : 0;
                     hudHtml += `
                         <div class="skill-icon">
-                            <div class="cd-overlay" style="height:${pct}%"></div>
+                            <div class="cd-overlay" id="cd-overlay-${idx}" style="height:${pct}%"></div>
                             <div class="skill-text">${w.name}<br><span class="skill-lvl">Lv.${w.level}</span></div>
                         </div>`;
                 });
@@ -2051,6 +2051,17 @@
                     }
 
                     // Custom Crosshair
+                    // #11: update cooldown bars every frame so they animate smoothly
+                    if (player && player.weapons) {
+                        player.weapons.forEach((w, idx) => {
+                            let el = document.getElementById(`cd-overlay-${idx}`);
+                            if (el) {
+                                let pct = w.cooldown ? Math.max(0, (w.cdTimer / w.cooldown) * 100) : 0;
+                                el.style.height = pct + '%';
+                            }
+                        });
+                    }
+
                     ctx.beginPath();
                     ctx.arc(mouse.x, mouse.y, 8, 0, Math.PI * 2); 
                     ctx.strokeStyle = '#00ff00'; 
