@@ -633,7 +633,8 @@
             lastTime: 0, 
             spawnTimer: 0, 
             enemiesToSpawn: 0, 
-            bossActive: false
+            bossActive: false,
+            score: 0 // #9
         };
 
         // --- AUDIO ENGINE ---
@@ -1524,7 +1525,7 @@
             }
         }
 
-        }
+        
 
         // --- MINE CLASS (#5) ---
         class Mine {
@@ -1658,6 +1659,7 @@
                 mines = [];
                 turrets = [];
                 streetlights = [];
+                GameState.score = 0; // #9
                 
                 for (let i = 0; i < 12; i++) {
                     streetlights.push(new Streetlight(Math.random() * canvas.width, 50 + Math.random() * (canvas.height - 100)));
@@ -1836,7 +1838,14 @@
                     }
                     UI.showScreen('victory-screen');
                 } else {
-                    document.getElementById('end-stats').innerText = `Waves Survived: ${GameState.wave - 1}`;
+                    // #9: show score, track endless high score
+                    if (GameState.runType === 'endless' && GameState.score > (SaveData.endlessHigh || 0)) {
+                        SaveData.endlessHigh = GameState.score;
+                        persistSave();
+                    }
+                    document.getElementById('end-stats').innerText = 
+                        `Waves: ${GameState.wave - 1}  |  Score: ${GameState.score}` +
+                        (GameState.runType === 'endless' ? `  |  Best: ${SaveData.endlessHigh || 0}` : '');
                     UI.showScreen('end-screen');
                 }
             },
@@ -1952,6 +1961,8 @@
                         }
                         
                         if (e.hp <= 0) {
+                            // #9: track score per kill
+                            GameState.score += e.isBoss ? 100 : (e.type === 'runner' ? 5 : 10);
                             // #7: heal based on vamp% of enemy max HP, not a flat 1
                             if (player.vamp > 0) { 
                                 let healAmt = Math.max(1, Math.floor(e.maxHp * player.vamp));
