@@ -1319,11 +1319,14 @@
                 this.hp = this.maxHp; 
                 this.walkTick = Math.random() * 100; 
                 this.angle = 0;
+                this.hitFlash = 0; // #18: flash white on hit
             }
             
             update(dt) {
                 this.angle = Math.atan2(player.y - this.y, player.x - this.x);
                 const distToPlayer = Math.hypot(player.x - this.x, player.y - this.y);
+                // #18: tick down hit flash timer
+                if (this.hitFlash > 0) this.hitFlash -= dt;
                 
                 if (this.type === 'shooter' && distToPlayer < 400) {
                     this.shootTimer -= dt;
@@ -1379,7 +1382,7 @@
                 
                 ctx.beginPath(); 
                 ctx.arc(0, 0, this.radius, 0, Math.PI * 2); 
-                ctx.fillStyle = this.color; 
+                ctx.fillStyle = this.hitFlash > 0 ? '#fff' : this.color; // #18
                 ctx.fill(); 
                 ctx.stroke();
                 
@@ -1405,7 +1408,8 @@
             }
             
             takeDamage(amt) { 
-                this.hp -= amt; 
+                this.hp -= amt;
+                this.hitFlash = 80; // #18: flash white for 80ms
                 floatingTexts.push(new FloatingText(this.x, this.y, Math.floor(amt), '#fff'));
                 // #17: knockback away from player on hit
                 let kbAngle = Math.atan2(this.y - player.y, this.x - player.x);
