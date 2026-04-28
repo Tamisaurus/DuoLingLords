@@ -1406,7 +1406,12 @@
             
             takeDamage(amt) { 
                 this.hp -= amt; 
-                floatingTexts.push(new FloatingText(this.x, this.y, Math.floor(amt), '#fff')); 
+                floatingTexts.push(new FloatingText(this.x, this.y, Math.floor(amt), '#fff'));
+                // #17: knockback away from player on hit
+                let kbAngle = Math.atan2(this.y - player.y, this.x - player.x);
+                let kbForce = this.isBoss ? 2 : 6;
+                this.x += Math.cos(kbAngle) * kbForce;
+                this.y += Math.sin(kbAngle) * kbForce;
             }
         }
 
