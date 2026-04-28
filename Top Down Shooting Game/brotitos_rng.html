@@ -208,8 +208,8 @@
             left: 0; 
             width: 100vw; 
             height: 100vh;
-            background: rgba(10, 10, 15, 0.98); /* Extremely opaque to hide hub */
-            z-index: 999; /* ALWAYS ON TOP */
+            background: rgba(10, 10, 15, 0.98);
+            z-index: 999;
             display: flex; 
             justify-content: center; 
             align-items: center;
@@ -405,6 +405,27 @@
             background: rgba(0,0,0,0.8); 
             height: 0%; 
         }
+
+        /* --- PAUSE MENU (#3) --- */
+        #pause-modal .panel {
+            min-width: 300px;
+        }
+
+        /* --- BOSS WARNING --- */
+        #boss-warning {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 48px;
+            color: var(--danger);
+            font-family: 'Righteous', cursive;
+            text-shadow: 0 0 20px var(--danger);
+            pointer-events: none;
+            z-index: 25;
+            white-space: nowrap;
+            animation: blink 0.5s infinite;
+        }
         
         /* Level Up Overlay */
         .upgrade-grid { 
@@ -499,6 +520,9 @@
             <div><span class="stat-label">Vampirism:</span><span id="stat-vamp">0%</span></div>
         </div>
 
+        <!-- BOSS WARNING ELEMENT (fix #1) -->
+        <div id="boss-warning" class="hidden">⚠ BOSS INCOMING ⚠</div>
+
         <div id="skills-hud"></div>
     </div>
 
@@ -522,6 +546,16 @@
             <h1 style="color: var(--success);">VICTORY!</h1>
             <h2>You cleared the stage!</h2>
             <button onclick="UI.showHub()">BACK TO HUB</button>
+        </div>
+    </div>
+
+    <!-- PAUSE MENU (#3) -->
+    <div id="pause-modal" class="modal-overlay hidden">
+        <div class="panel">
+            <h2 style="margin-bottom: 20px;">PAUSED</h2>
+            <button onclick="Game.resumeRun()">RESUME</button><br>
+            <button onclick="AudioEngine.toggleSFX(); document.getElementById('pause-sfx-btn').innerText = 'SFX: ' + (SaveData.sfx ? 'ON' : 'OFF');" id="pause-sfx-btn">SFX: ON</button><br>
+            <button class="btn-close" onclick="UI.showHub()">QUIT TO HUB</button>
         </div>
     </div>
 
@@ -673,12 +707,10 @@
         // --- UI MANAGER ---
         const UI = {
             screens: ['title-screen', 'main-hub', 'game-ui'],
-            modals: ['settings-modal', 'characters-modal', 'campaign-modal', 'levelup-screen', 'end-screen', 'victory-screen'],
+            modals: ['settings-modal', 'characters-modal', 'campaign-modal', 'levelup-screen', 'end-screen', 'victory-screen', 'pause-modal'],
             
             showScreen: function(id) {
-                // Hide all bases
                 this.screens.forEach(s => document.getElementById(s).classList.add('hidden'));
-                // Hide all modals to ensure clean state
                 this.modals.forEach(m => document.getElementById(m).classList.add('hidden'));
                 
                 document.getElementById(id).classList.remove('hidden');
@@ -686,7 +718,6 @@
             },
             
             showModal: function(id) { 
-                // Hide other modals first so they don't stack
                 this.modals.forEach(m => document.getElementById(m).classList.add('hidden'));
                 document.getElementById(id).classList.remove('hidden'); 
             },
@@ -801,6 +832,9 @@
         let mines = [];
         let turrets = [];
         let streetlights = [];
+
+        // --- SCREEN SHAKE (#2) ---
+        let screenShake = { intensity: 0, duration: 0 };
 
         function getNearestEnemies(x, y, count, maxDist = Infinity) {
             let sorted = enemies.map(e => { 
@@ -1083,7 +1117,9 @@
                     this.invulnTime = 500;
                     
                     floatingTexts.push(new FloatingText(this.x, this.y, `-${Math.floor(dmg)}`, '#e63946'));
-                    AudioEngine.hit(); 
+                    AudioEngine.hit();
+                    screenShake.intensity = 8;
+                    screenShake.duration = 300;
                     Game.updateHUD();
                     
                     if (this.hp <= 0) {
@@ -1605,6 +1641,21 @@
                 });
             },
 
+            // Pause menu (#3)
+            pauseRun: function() {
+                if (GameState.mode !== 'playing') return;
+                GameState.mode = 'paused';
+                document.getElementById('pause-sfx-btn').innerText = 'SFX: ' + (SaveData.sfx ? 'ON' : 'OFF');
+                UI.showModal('pause-modal');
+            },
+
+            resumeRun: function() {
+                GameState.mode = 'playing';
+                UI.hideModal('pause-modal');
+                GameState.lastTime = performance.now();
+                mouse.isDown = false;
+            },
+
             endRun: function(win) {
                 GameState.mode = 'gameover';
                 
@@ -1631,6 +1682,16 @@
                     GameState.lastTime = now;
                     
                     this.drawEnvironment();
+
+                    // Apply screen shake (#2)
+                    if (screenShake.duration > 0) {
+                        screenShake.duration -= dt;
+                        let sx = (Math.random() - 0.5) * screenShake.intensity;
+                        let sy = (Math.random() - 0.5) * screenShake.intensity;
+                        screenShake.intensity *= 0.9;
+                        ctx.save();
+                        ctx.translate(sx, sy);
+                    }
 
                     GameState.spawnTimer -= dt;
                     if (GameState.spawnTimer <= 0 && GameState.enemiesToSpawn > 0) {
@@ -1754,6 +1815,11 @@
                         }
                     }
 
+                    // Restore screen shake translation (#2)
+                    if (screenShake.duration > 0 || screenShake.intensity > 0) {
+                        ctx.restore();
+                    }
+
                     // Custom Crosshair
                     ctx.beginPath();
                     ctx.arc(mouse.x, mouse.y, 8, 0, Math.PI * 2); 
@@ -1800,7 +1866,15 @@
         };
 
         // --- BINDINGS ---
-        window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+        window.addEventListener('keydown', e => {
+            // Escape toggles pause (#3)
+            if (e.key === 'Escape') {
+                if (GameState.mode === 'playing') Game.pauseRun();
+                else if (GameState.mode === 'paused') Game.resumeRun();
+                return;
+            }
+            keys[e.key.toLowerCase()] = true;
+        });
         window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
         window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
         window.addEventListener('mousedown', () => mouse.isDown = true);
@@ -1814,4 +1888,4 @@
         UI.showScreen('title-screen');
     </script>
 </body>
-</html>s
+</html>
