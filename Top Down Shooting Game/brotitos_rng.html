@@ -505,6 +505,10 @@
                 <span>Sound Effects</span>
                 <button id="toggle-sfx" onclick="AudioEngine.toggleSFX()" style="padding: 5px 15px; font-size: 18px;">ON</button>
             </div>
+            <div class="setting-row">
+                <span>Music</span>
+                <button class="music-toggle-btn" onclick="AudioEngine.toggleMusic()" style="padding: 5px 15px; font-size: 18px;">ON</button>
+            </div>
             <p style="color: #aaa; font-size: 18px; margin-bottom: 20px;">*Audio is fully synthesized in-browser!</p>
             <button class="btn-close" onclick="UI.hideModal('settings-modal')">CLOSE</button>
         </div>
@@ -586,6 +590,7 @@
             <h2 style="margin-bottom: 20px;">PAUSED</h2>
             <button onclick="Game.resumeRun()">RESUME</button><br>
             <button onclick="AudioEngine.toggleSFX(); document.getElementById('pause-sfx-btn').innerText = 'SFX: ' + (SaveData.sfx ? 'ON' : 'OFF');" id="pause-sfx-btn">SFX: ON</button><br>
+            <button class="music-toggle-btn" onclick="AudioEngine.toggleMusic()">Music: ON</button><br>
             <button class="btn-close" onclick="UI.showHub()">QUIT TO HUB</button>
         </div>
     </div>
@@ -643,7 +648,8 @@
         let SaveData = { 
             maxStage: 1, 
             characterId: 'classic', 
-            sfx: true 
+            sfx: true,
+            music: true // #22
         };
 
         // #8: Load save from localStorage on startup
@@ -679,7 +685,8 @@
             
             init: function() { 
                 if (!this.ctx) {
-                    this.ctx = new (window.AudioContext || window.webkitAudioContext)(); 
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    this.startMusic(); // #22
                 }
             },
             
@@ -687,6 +694,51 @@
                 SaveData.sfx = !SaveData.sfx; 
                 document.getElementById('toggle-sfx').innerText = SaveData.sfx ? "ON" : "OFF";
                 persistSave(); // #8
+            },
+
+            // #22: ambient music loop
+            musicNodes: null,
+            startMusic: function() {
+                if (!SaveData.music || !this.ctx || this.musicNodes) return;
+                // Simple drone: two detuned oscillators + slow LFO
+                let o1 = this.ctx.createOscillator();
+                let o2 = this.ctx.createOscillator();
+                let lfo = this.ctx.createOscillator();
+                let lfoGain = this.ctx.createGain();
+                let gain = this.ctx.createGain();
+
+                o1.type = 'sawtooth'; o1.frequency.value = 55;
+                o2.type = 'sawtooth'; o2.frequency.value = 55.5; // slight detune
+                lfo.type = 'sine'; lfo.frequency.value = 0.15;
+                lfoGain.gain.value = 8;
+                gain.gain.value = 0.04;
+
+                lfo.connect(lfoGain);
+                lfoGain.connect(o1.frequency);
+                lfoGain.connect(o2.frequency);
+                o1.connect(gain); o2.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                o1.start(); o2.start(); lfo.start();
+                this.musicNodes = { o1, o2, lfo, gain };
+            },
+            stopMusic: function() {
+                if (!this.musicNodes) return;
+                try {
+                    this.musicNodes.gain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.3);
+                    setTimeout(() => {
+                        try { this.musicNodes.o1.stop(); this.musicNodes.o2.stop(); this.musicNodes.lfo.stop(); } catch(e) {}
+                        this.musicNodes = null;
+                    }, 500);
+                } catch(e) { this.musicNodes = null; }
+            },
+            toggleMusic: function() {
+                SaveData.music = !SaveData.music;
+                persistSave();
+                const btns = document.querySelectorAll('.music-toggle-btn');
+                btns.forEach(b => b.innerText = 'Music: ' + (SaveData.music ? 'ON' : 'OFF'));
+                if (SaveData.music) this.startMusic();
+                else this.stopMusic();
             },
             
             playTone: function(freq, type, duration, volSlide = false) {
