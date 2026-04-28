@@ -905,6 +905,7 @@
                         let baseAngle = Math.atan2(mouse.y - p.y, mouse.x - p.x);
                         for (let i = 0; i < w.amount; i++) {
                             let spread = (i - (w.amount - 1) / 2) * 0.05;
+                            // #15: piercing=true, isEnemy=false — was previously swapped
                             projectiles.push(new Projectile(p.x, p.y, baseAngle + spread, 16, w.damage * p.dmgMult, true, false, 'sniper')); 
                         }
                         AudioEngine.shootHeavy(); 
@@ -923,7 +924,9 @@
                 fire: (w, p) => {
                     for (let i = 0; i < w.amount; i++) {
                         let angle = (Math.PI * 2 / w.amount) * i;
-                        projectiles.push(new Projectile(p.x, p.y, angle, 2, w.damage * p.dmgMult, true, false, 'orbital'));
+                        // #6: each extra saw gets a wider orbit so they don't stack
+                        let orbitDist = 60 + Math.floor(i / 4) * 35;
+                        projectiles.push(new Projectile(p.x, p.y, angle, 2, w.damage * p.dmgMult, true, false, 'orbital', orbitDist));
                     }
                     return true;
                 }
@@ -1172,7 +1175,7 @@
         }
 
         class Projectile {
-            constructor(x, y, angle, speed, damage, piercing = false, isEnemy = false, type = 'normal') {
+            constructor(x, y, angle, speed, damage, piercing = false, isEnemy = false, type = 'normal', orbitDist = 60) {
                 this.type = type;
                 this.x = x; 
                 this.y = y; 
@@ -1187,7 +1190,7 @@
                 this.piercing = piercing; 
                 this.isEnemy = isEnemy; 
                 this.hits = []; 
-                this.dist = 60; 
+                this.dist = orbitDist;
             }
             update(dt) {
                 let ts = dt / 16; 
@@ -1934,8 +1937,11 @@
                         }
                         
                         if (e.hp <= 0) {
-                            if (player.vamp > 0 && Math.random() < player.vamp) { 
-                                player.hp = Math.min(player.maxHp, player.hp + 1);
+                            // #7: heal based on vamp% of enemy max HP, not a flat 1
+                            if (player.vamp > 0) { 
+                                let healAmt = Math.max(1, Math.floor(e.maxHp * player.vamp));
+                                player.hp = Math.min(player.maxHp, player.hp + healAmt);
+                                floatingTexts.push(new FloatingText(player.x, player.y - 20, `+${healAmt}`, '#ff69b4'));
                                 this.updateHUD(); 
                             }
                             
