@@ -427,6 +427,37 @@
             animation: blink 0.5s infinite;
         }
         
+        /* --- UPGRADE CARDS (#10) --- */
+        .upgrade-card {
+            cursor: pointer;
+            padding: 20px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            background: rgba(30, 30, 40, 0.95);
+            transition: border-color 0.15s, background 0.15s;
+            pointer-events: auto;
+        }
+        .upgrade-card:hover {
+            border-color: var(--primary);
+            background: rgba(60, 55, 20, 0.95);
+        }
+        .upgrade-type {
+            font-size: 14px;
+            color: var(--secondary);
+            letter-spacing: 2px;
+            margin-bottom: 6px;
+        }
+        .upgrade-title {
+            font-size: 26px;
+            font-family: 'Righteous', cursive;
+            color: var(--primary);
+            margin-bottom: 4px;
+        }
+        .upgrade-desc {
+            font-size: 18px;
+            color: #ccc;
+        }
+
         /* Level Up Overlay */
         .upgrade-grid { 
             display: grid; 
