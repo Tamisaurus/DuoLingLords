@@ -1759,30 +1759,113 @@
             },
 
             drawEnvironment: function() {
-                if (GameState.theme === 'suburbs') ctx.fillStyle = '#2d3436';
-                else if (GameState.theme === 'city') ctx.fillStyle = '#0a0a0e';
-                else if (GameState.theme === 'desert') ctx.fillStyle = '#8d6e63';
-                else if (GameState.theme === 'sewers') ctx.fillStyle = '#1b5e20';
-                else ctx.fillStyle = '#3e2723';
-                
+                const t = GameState.theme;
+
+                // --- Base background color per theme (#19) ---
+                if (t === 'suburbs') ctx.fillStyle = '#2d3436';
+                else if (t === 'city') ctx.fillStyle = '#0a0a0e';
+                else if (t === 'desert') ctx.fillStyle = '#c4a265';
+                else if (t === 'sewers') ctx.fillStyle = '#1a2e1a';
+                else ctx.fillStyle = '#1a0a0a'; // core
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
-                
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)'; 
-                ctx.lineWidth = 2;
-                
-                for (let i = 100; i < canvas.width; i += 200) { 
-                    ctx.beginPath(); 
-                    ctx.moveTo(i, 0); 
-                    ctx.lineTo(i, canvas.height); 
-                    ctx.stroke();
+
+                // --- Theme-specific details (#19) ---
+                if (t === 'suburbs') {
+                    // Dashed road lines
+                    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+                    ctx.lineWidth = 2;
+                    for (let i = 100; i < canvas.width; i += 200) {
+                        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+                    }
+                    // House silhouettes along top
+                    ctx.fillStyle = '#222';
+                    for (let i = 0; i < canvas.width; i += 120) {
+                        ctx.fillRect(i + 10, 40, 80, 50);
+                        ctx.beginPath(); ctx.moveTo(i + 5, 40); ctx.lineTo(i + 55, 10); ctx.lineTo(i + 105, 40); ctx.fill();
+                    }
+
+                } else if (t === 'city') {
+                    // Vertical grid lines
+                    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+                    ctx.lineWidth = 2;
+                    for (let i = 100; i < canvas.width; i += 200) {
+                        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+                    }
+                    // Horizontal lines for road grid
+                    for (let i = 150; i < canvas.height; i += 200) {
+                        ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); ctx.stroke();
+                    }
+                    streetlights.forEach(l => l.draw());
+
+                } else if (t === 'desert') {
+                    // Sand dune ripple lines
+                    ctx.strokeStyle = 'rgba(180,120,60,0.25)';
+                    ctx.lineWidth = 3;
+                    for (let i = 0; i < canvas.height; i += 40) {
+                        ctx.beginPath();
+                        ctx.moveTo(0, i);
+                        for (let x = 0; x < canvas.width; x += 60) {
+                            ctx.quadraticCurveTo(x + 30, i - 10, x + 60, i);
+                        }
+                        ctx.stroke();
+                    }
+                    // Scattered rocks
+                    ctx.fillStyle = 'rgba(100,70,40,0.4)';
+                    for (let i = 0; i < 18; i++) {
+                        let rx = (i * 173) % canvas.width;
+                        let ry = (i * 97 + 50) % canvas.height;
+                        ctx.beginPath(); ctx.ellipse(rx, ry, 12, 7, 0.3, 0, Math.PI * 2); ctx.fill();
+                    }
+
+                } else if (t === 'sewers') {
+                    // Sewer pipe grid
+                    ctx.strokeStyle = 'rgba(0,180,0,0.08)';
+                    ctx.lineWidth = 4;
+                    for (let i = 0; i < canvas.width; i += 160) {
+                        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+                    }
+                    for (let i = 0; i < canvas.height; i += 160) {
+                        ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); ctx.stroke();
+                    }
+                    // Toxic puddles
+                    ctx.fillStyle = 'rgba(0,200,50,0.12)';
+                    for (let i = 0; i < 10; i++) {
+                        let px = (i * 211) % canvas.width;
+                        let py = (i * 137 + 80) % canvas.height;
+                        ctx.beginPath(); ctx.ellipse(px, py, 30, 15, 0, 0, Math.PI * 2); ctx.fill();
+                    }
+
+                } else {
+                    // Core: lava crack lines
+                    ctx.strokeStyle = 'rgba(255,80,0,0.15)';
+                    ctx.lineWidth = 2;
+                    for (let i = 0; i < 12; i++) {
+                        let sx = (i * 193) % canvas.width;
+                        ctx.beginPath(); ctx.moveTo(sx, 0);
+                        ctx.lineTo(sx + 40, canvas.height / 3);
+                        ctx.lineTo(sx - 20, canvas.height * 0.66);
+                        ctx.lineTo(sx + 10, canvas.height);
+                        ctx.stroke();
+                    }
+                    // Glow spots
+                    ctx.save();
+                    ctx.globalCompositeOperation = 'lighter';
+                    for (let i = 0; i < 6; i++) {
+                        let gx = (i * 317) % canvas.width;
+                        let gy = (i * 211 + 100) % canvas.height;
+                        let g = ctx.createRadialGradient(gx, gy, 5, gx, gy, 60);
+                        g.addColorStop(0, 'rgba(255,60,0,0.15)');
+                        g.addColorStop(1, 'rgba(0,0,0,0)');
+                        ctx.fillStyle = g;
+                        ctx.beginPath(); ctx.arc(gx, gy, 60, 0, Math.PI * 2); ctx.fill();
+                    }
+                    ctx.restore();
                 }
-                
-                streetlights.forEach(l => l.draw());
-                
+
+                // Border vignette (all themes)
                 ctx.fillStyle = '#050507';
                 ctx.fillRect(0, 0, canvas.width, 40); 
                 ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
-                
                 ctx.strokeStyle = '#1a1a1a'; 
                 ctx.lineWidth = 20; 
                 ctx.strokeRect(0, 0, canvas.width, canvas.height);
